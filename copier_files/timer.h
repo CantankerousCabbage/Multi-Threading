@@ -13,12 +13,13 @@ class timer {
         /* Creates timer from which we'll time and record our functions
         * 
         */
-        timer(writer& thewriter, reader& thereader, const std::string& inFile, const char& t);
+        timer(writer& thewriter, reader& thereader);
 
         void run();
+        void runTimed();
     private:
 
-        const std::string& inFile;
+        // const std::string& inFile;
         writer& thewriter;
         reader& thereader;
 };

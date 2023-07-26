@@ -1,10 +1,16 @@
 #include "timer.h"
 
-timer::timer(writer& thewriter, reader& thereader, const std::string& inFile, const char& t) 
-: thewriter{thewriter}, thereader{thereader}, inFile{inFile} {}
+timer::timer(writer& thewriter, reader& thereader) : thewriter{thewriter}, thereader{thereader}{}
 
 void timer::run() {
 
+    thereader.run();
+    thewriter.run();
+
+    std::cout << "Complete" << std::endl;
+}
+
+void timer::runTimed() {
     auto duration = [](clock_t start, clock_t end){return (start - end) / CLOCKS_PER_SEC;};
 
     clock_t start = clock();
@@ -19,6 +25,10 @@ void timer::run() {
 
     auto writeDuration = duration(start, end);
 
-
-    //TODO record data
+    std::cout << "Complete\n"
+    "Read Duration: " << readDuration << "\n"
+    "Write Duration: " << writeDuration << "\n"
+    << std::endl;
+    
 }
+

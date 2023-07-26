@@ -4,6 +4,7 @@
  **/
 #include "reader.h"
 #include "writer.h"
+#include "timer.h"
 #include <cstdlib>
 #include <memory>
 
@@ -19,18 +20,24 @@ int main(int argc, char** argv) {
     std::shared_ptr<reader> theReader; 
     std::shared_ptr<writer> theWriter;
     bool* timed;
-    /* load the file and copy it to the destination */
+
+    parseCommandLine(argc, argv, theReader, theWriter, timed);
+    std::unique_ptr<timer> run = std::make_unique<timer>(theWriter, theReader);
+
+    if (*timed) { run->runTimed();
+    } else run->run();
+
     return EXIT_SUCCESS;
 }
 
 bool parseCommandLine(int argc, char** argv, std::shared_ptr<reader> theReader, 
-std::shared_ptr<reader> theWriter, bool* timed){
+std::shared_ptr<writer> theWriter, bool* timed){
 
     if (argc < INPUT_MIN) {
 
     }
     theReader = std::make_shared<reader>(std::string(argv[1]));
-    theWriter = std::make_shared<reader>(std::string(argv[2]));
+    theWriter = std::make_shared<writer>(std::string(argv[2]));
     *timed = (argc == CONFIG_ADDITIONAL && argv[3] == TIMED) ? true : cmdError();
 }
 

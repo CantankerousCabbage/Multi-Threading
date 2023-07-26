@@ -21,7 +21,7 @@ class reader {
      * file. There will be other things which you will need to figure out
      * as you complete the assignment.
      **/
-    static void init(const std::string& name);
+    static void init(const std::string& name, const int& numThreads);
 
     /**
      * the method that implements the thread. It has to be static as the first
@@ -40,6 +40,9 @@ class reader {
 
    private:
     static std::ifstream in;
+    static std::string& name;
+    static int& numThreads;
+    bool* timed;
     /**
      * There may be other private instance data you need so declare those here.
      **/
