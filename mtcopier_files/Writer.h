@@ -2,15 +2,17 @@
  * startup code provided by Paul Miller for COSC1114 - Operating Systems
  * Principles
  **/
-#include <pthread.h>
+#ifndef WRITER
+#define WRITER
 
+#include <pthread.h>
 #include <deque>
 #include <fstream>
 #include <iostream>
 #include <string>
-#ifndef WRITER
-#define WRITER
-class writer {
+
+
+class Writer {
    public:
     /**
      * Please note that methods and data need to be static as there's a
@@ -26,12 +28,12 @@ class writer {
     static void append(const std::string& line);
     void setfinished();
 
-   private:
+//    private:
 
     static std::ofstream out;
     static std::deque<std::string> queue;
-    static std::string& name;
-    static int& numThreads;
-    bool* timed;
+    static std::string name;
+    static int numThreads;
+    static bool* timed;
 };
 #endif

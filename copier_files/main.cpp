@@ -19,7 +19,7 @@ int main(int argc, char** argv) {
 
     std::shared_ptr<reader> theReader; 
     std::shared_ptr<writer> theWriter;
-    bool* timed;
+    bool* timed = new bool(false);
 
     parseCommandLine(argc, argv, theReader, theWriter, timed);
     std::unique_ptr<timer> run = std::make_unique<timer>(theWriter, theReader);
@@ -27,6 +27,7 @@ int main(int argc, char** argv) {
     if (*timed) { run->runTimed();
     } else run->run();
 
+    delete timed;
     return EXIT_SUCCESS;
 }
 
