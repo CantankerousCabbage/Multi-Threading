@@ -11,6 +11,11 @@
 #include <iostream>
 #include <string>
 
+//Thread data structure to hold string as well as queue counter
+typedef struct _thread_data {
+    int writeId;
+    std::string writeLine;
+} write_data;
 
 class Writer {
    public:
@@ -24,16 +29,36 @@ class Writer {
      **/
     static void init(const std::string& name, const int& numthreads);
     static void* runner(void*);
+    void cleanUp();
     void run();
+
+    /*
+    * Thread safe append. Waits on conditional if dequeue holds lock.
+    */
     static void append(const std::string& line);
+
+    /*
+    * Thread safe deque. Waits on conditional if queue empty of if append holds lock.
+    */
+    static bool dequeue(write_data* arg);
     void setfinished();
 
 //    private:
+    static int lineCount;
+    static int writeCount;
+
+    static pthread_mutex_t* queueLock;
+    static pthread_mutex_t* fetchLock;
+    static pthread_mutex_t* writeLock;
+
+    static pthread_cond_t* fetchCond;
+    static pthread_cond_t* queueCond;
 
     static std::ofstream out;
     static std::deque<std::string> queue;
     static std::string name;
     static int numThreads;
     static bool* timed;
+    
 };
 #endif

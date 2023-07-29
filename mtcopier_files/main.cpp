@@ -11,8 +11,8 @@
 
 #define STANDARD_COMMAND 4
 #define CONFIG_ADDITIONAL 5
-#define MAX_THREADS 10000
-#define MIN_THREADS 10
+#define MAX_THREADS 250
+#define MIN_THREADS 25
 #define TIMED "-t"
 /**
  * Removed global variables in favour of explicit cleanup called at exit;

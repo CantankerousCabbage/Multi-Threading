@@ -9,7 +9,17 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+
+#define UNLOCKED 0
+#define LOCKED 1
+
 class Writer;
+
+//Thread data structure to hold string as well as queue counter
+typedef struct _thread_data {
+    int queueId;
+    std::string readLine;
+} read_data;
 
 class Reader {
    public:
@@ -41,20 +51,26 @@ class Reader {
      **/
 
     /**
-     * Clean up pointers and mutex
+     * Clean up pointers and pthread mutex, condition variables.
      **/
     void cleanUp();
 
    // private:
    static int queueCounter;
    static int readCounter;
+
+   
    static pthread_mutex_t* appendLock;
    static pthread_mutex_t* readLock;
+   static pthread_cond_t* readCondition;
+   static pthread_cond_t* appendCondition;
+
    static std::ifstream in;
    static std::string name;
    static int numThreads;
    static Writer* write;
    static bool* timed;
+   static bool pass;
     /**
      * There may be other private instance data you need so declare those here.
      **/

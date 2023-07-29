@@ -20,8 +20,6 @@ void Timer::run() {
 
     
     //We want to assign half the threads to read and write respectively so theoretically they keep pace.
-    // int x = *numThreads;
-     std::cout << *numThreads << std::endl;
     auto threadSplit = [](int x){ return (x / 2) - 1;};
     int realThreads = threadSplit(*numThreads);
 
@@ -29,17 +27,20 @@ void Timer::run() {
     write->init(output, realThreads);
 
     int arg;
-    
     pthread_t readManager;
-    // pthread_t writeManager;
+    pthread_t writeManager;
 
-    // auto readManagerFunction = [](reader* read){return read->run(NULL);};
     
-    pthread_create(&readManager, NULL, readManagerFunction, &arg);
-    // pthread_create(&writeManager, NULL, writeManagerFunction, &arg);
+    //Threads to instantiate reader and write threads. Exit on failure.
+    if(pthread_create(&readManager, NULL, readManagerFunction, &arg)){
+        exit(-1);
+    }
+    if(pthread_create(&writeManager, NULL, writeManagerFunction, &arg)){
+        exit(-1);
+    }
     
     pthread_join(readManager, NULL);
-    // pthread_join(writeManager, NULL);
+    pthread_join(writeManager, NULL);
 
     std::cout << "Complete" << std::endl;
 }

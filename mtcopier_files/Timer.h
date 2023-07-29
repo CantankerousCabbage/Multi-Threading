@@ -10,12 +10,6 @@
 class Reader;
 class Writer;
 
-//Thread data structure to hold string as well as queue counter
-typedef struct _thread_data {
-    int queueId;
-    std::string readLine;
-} read_data;
-
 class Timer {
 
     public:
