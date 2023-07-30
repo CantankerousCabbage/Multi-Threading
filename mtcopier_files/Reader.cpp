@@ -10,28 +10,26 @@
 
 pthread_mutex_t* Reader::appendLock;
 pthread_mutex_t* Reader::readLock;
-pthread_cond_t* Reader::readCondition;
 pthread_cond_t* Reader::appendCondition;
 std::ifstream Reader::in;
 std::string Reader::name;
 int Reader::numThreads;
 Writer* Reader::write;
 bool* Reader::timed;
-bool Reader::pass;
+bool* Reader::readComplete;
 
 void Reader::init(const std::string& fileName, const int& numThreads, Writer* writer) {
     write = writer;
     name = fileName;
     Reader::numThreads = numThreads;
-    pass = false;
+    readComplete = new bool(false);
     in.open(name);
 
-    queueCounter = 0;
-    readCounter = 0;
+    queueCounter = 1;
+    readCounter = new int(0);
 
     pthread_mutex_init(readLock, NULL);
     pthread_mutex_init(appendLock, NULL);
-    pthread_cond_init(readCondition, NULL);
     pthread_cond_init(appendCondition, NULL);
 }
 
@@ -56,7 +54,7 @@ void Reader::run() {
             exit(-1);
         }
     }
-
+    
     cleanUp();
     std::cout << "Reader threads joined" << std::endl;
 }
@@ -67,22 +65,31 @@ void* Reader::runner(void* arg) {
     
     std::cout << "Thread ID running: " << data->queueId << "\n";
     
+    //Check that eof not reached before attempting read.
     if(in.eof()) in.close();
     
-    while(pthread_mutex_trylock(readLock) != UNLOCKED){
-        pthread_cond_wait(readCondition, readLock);
-    } 
-        if(in.is_open()){
-            std::getline(in, data->readLine); 
-            data->queueId = readCounter++;  
+    while(!(*readComplete)) {
+        readLine(data);
+        queueLine(data);
+    }
+
+    return NULL;
+}
+
+void Reader::readLine(read_data* data) {
+    //Lock input on read
+    pthread_mutex_lock(readLock);
+        if(!(*readComplete) && std::getline(in, data->readLine)){ 
+            data->queueId = ++(*readCounter);  
         } else {
+            if(!(*readComplete)) readFinished();
+            pthread_mutex_unlock(readLock);
             pthread_exit(NULL);
-            pthread_cond_broadcast(readCondition);
         }
     pthread_mutex_unlock(readLock);
-    pthread_cond_signal(readCondition);
+}
 
-
+void Reader::queueLine(read_data* data) {
     pthread_mutex_lock(appendLock);
     //Threads wait if it isn't their lines turn to append.
     while(data->queueId != queueCounter){
@@ -90,18 +97,21 @@ void* Reader::runner(void* arg) {
     }
         write->append(data->readLine);
         queueCounter++;
-    pthread_mutex_unlock(readLock);
-    //On counter increment broadcast to waiting threads to recheck conition;
+    //On counter increment broadcast to waiting threads to recheck conition;   
     pthread_cond_broadcast(appendCondition);
-
-    return (void*) data;
+    pthread_mutex_unlock(readLock);
 }
 
-void Reader::cleanUp(){
-    
+void Reader::readFinished() {
+    *readComplete++;
+    Writer::setFinal(readCounter);
+}
+
+void Reader::cleanUp(){ 
+    delete readCounter;
+    delete readComplete;
     pthread_mutex_destroy(appendLock);
     pthread_mutex_destroy(readLock);
-    pthread_cond_destroy(readCondition);
     pthread_cond_destroy(appendCondition);
 }
 

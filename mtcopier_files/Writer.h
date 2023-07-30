@@ -41,17 +41,39 @@ class Writer {
     * Thread safe deque. Waits on conditional if queue empty of if append holds lock.
     */
     static bool dequeue(write_data* arg);
-    void setfinished();
+
+    /*
+    * Fetch data from queue for writing
+    */
+    static void fetchData(write_data* data);
+
+    /*
+    * Write data to output file
+    */
+    static void writeData(write_data* data);
+
+    /*
+    * Sets the final line number
+    */
+    static void setFinal(int* finalCounter);
+
+    /*
+    * Check if final line received
+    */
+    static bool checkFinal(write_data* data);
+
+    static void setFinished();
 
 //    private:
     static int lineCount;
     static int writeCount;
+    static int* finalCount;
+    static bool writeComplete;
 
     static pthread_mutex_t* queueLock;
     static pthread_mutex_t* fetchLock;
     static pthread_mutex_t* writeLock;
 
-    static pthread_cond_t* fetchCond;
     static pthread_cond_t* queueCond;
 
     static std::ofstream out;

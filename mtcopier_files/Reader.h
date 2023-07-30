@@ -53,11 +53,26 @@ class Reader {
     /**
      * Clean up pointers and pthread mutex, condition variables.
      **/
+    static void readLine(read_data* data);
+
+    /**
+     * Clean up pointers and pthread mutex, condition variables.
+     **/
+    static void queueLine(read_data* data);
+
+    /**
+     * Sets read as finished, notifies write of final line counter;
+     **/
+    static void readFinished();
+
+    /**
+     * Clean up pointers and pthread mutex, condition variables.
+     **/
     void cleanUp();
 
    // private:
    static int queueCounter;
-   static int readCounter;
+   static int* readCounter;
 
    
    static pthread_mutex_t* appendLock;
@@ -70,7 +85,7 @@ class Reader {
    static int numThreads;
    static Writer* write;
    static bool* timed;
-   static bool pass;
+   static bool* readComplete;
     /**
      * There may be other private instance data you need so declare those here.
      **/
