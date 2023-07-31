@@ -18,34 +18,38 @@ void Timer::initTimer(std::string& input, std::string& output, int* numThreads, 
 }
 void Timer::run() {
 
+
+
+
+    // std::cout <<"In Timed" << std::endl;
+    // //We want to assign half the threads to read and write respectively so theoretically they keep pace.
+    // auto threadSplit = [](int x){ return (x / 2) - 1;};
+    // int realThreads = threadSplit(*numThreads);
+    // std::cout <<"1" << std::endl;
+    // read->init(input, realThreads, write);
+    // write->init(output, realThreads);
+    // std::cout <<"2" << std::endl;
+    // int arg;
+    // pthread_t readManager;
+    // pthread_t writeManager;
+
     
-    //We want to assign half the threads to read and write respectively so theoretically they keep pace.
-    auto threadSplit = [](int x){ return (x / 2) - 1;};
-    int realThreads = threadSplit(*numThreads);
-
-    read->init(input, realThreads, write);
-    write->init(output, realThreads);
-
-    int arg;
-    pthread_t readManager;
-    pthread_t writeManager;
-
+    // //Threads to instantiate reader and write threads. Exit on failure.
+    // if(pthread_create(&readManager, NULL, readManagerFunction, &arg)){
+    //     exit(-1);
+    // }
+    // if(pthread_create(&writeManager, NULL, writeManagerFunction, &arg)){
+    //     exit(-1);
+    // }
     
-    //Threads to instantiate reader and write threads. Exit on failure.
-    if(pthread_create(&readManager, NULL, readManagerFunction, &arg)){
-        exit(-1);
-    }
-    if(pthread_create(&writeManager, NULL, writeManagerFunction, &arg)){
-        exit(-1);
-    }
-    
-    pthread_join(readManager, NULL);
-    pthread_join(writeManager, NULL);
+    // pthread_join(readManager, NULL);
+    // pthread_join(writeManager, NULL);
 
-    std::cout << "Complete" << std::endl;
+    // std::cout << "Complete" << std::endl;
 }
 
 void* Timer::readManagerFunction(void*) {
+    std::cout <<"Run on non instance" << std::endl;
     read->run();
 
     return NULL;

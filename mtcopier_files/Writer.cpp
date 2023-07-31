@@ -8,117 +8,111 @@
 
 int Writer::lineCount;
 int Writer::writeCount;
+bool Writer::writeComplete;
 
+pthread_mutex_t* Writer::queueLock;
+pthread_mutex_t* Writer::fetchLock;
+pthread_mutex_t* Writer::writeLock;
 
-pthread_mutex_t* queueLock;
-pthread_mutex_t* fetchLock;
-pthread_mutex_t* writeLock;
+pthread_cond_t* Writer::queueCond;
+pthread_cond_t* Writer::writeCond;
 
-pthread_cond_t* queueCond;
-pthread_cond_t* writeCond;
-
+std::string Writer::outFile;
 std::ofstream Writer::out;
 std::deque<std::string> Writer::queue;
-std::string Writer::name;
-int Writer::numThreads;
-bool* Writer::timed;
 
-void Writer::init(const std::string& name, const int& numThreads) {
+
+
+
+
+Writer::Writer(){}
+Writer::Writer(int ID) : threadID{ID} {}
+Writer::~Writer(){}
+
+void Writer::init(const std::string& name) {
+    
+    Writer::outFile = name;
+    out.open(outFile);
+
     Writer::writeComplete = false;
-    Writer::name = name;
-    Writer::numThreads = numThreads;
     Writer::lineCount = 0;
     Writer::writeCount = 1;
+ 
+    // pthread_mutex_t* queueLock = new pthread_mutex_t;
+    // pthread_mutex_t* fetchLock = new pthread_mutex_t;
+    // pthread_mutex_t* writeLock = new pthread_mutex_t;
+
+    // pthread_cond_t* queueCond = new pthread_cond_t;
+    // pthread_cond_t* writeCond = new pthread_cond_t;
 
     pthread_mutex_init(fetchLock, NULL);
     pthread_mutex_init(queueLock, NULL);
     pthread_mutex_init(writeLock, NULL);
-
     pthread_cond_init(queueCond, NULL);
-    pthread_cond_init(writeCond, NULL);
-
-    out.open(name);
+    pthread_cond_init(writeCond, NULL);  
 }
 
 void Writer::run() {
-    write_data data[numThreads];
-    pthread_t threads[numThreads];
 
-    
-    for (int i = 0; i < numThreads; ++i) {
-        data[i].writeId = i;
-        if(pthread_create(&threads[i], NULL, &runner, &data[i])) {
-            std::cout << "error: unable to create thread" << std::endl;
-            exit(-1);
-        }
-    }
-
-    for (int i = 0; i < numThreads; ++i) {
-        if(pthread_join(threads[i], NULL)) {
-            std::cout << "error: unable to join thread" << std::endl;
-            exit(-1);
-        }
-    }
-
+    pthread_create(writeThread, NULL, &runner, this);
     cleanUp();
-    std::cout << "Reader threads joined" << std::endl;
 }
 
 void* Writer::runner(void* arg) { 
-    write_data* data = (write_data*) arg;
-
+    Writer* writer = (Writer*) arg;
+    
     while (!writeComplete) {
-        fetchData(data);
-        writeData(data);
+        writer->fetchData();
+        writer->writeData();
     }
+    std::cout <<"W3" << std::endl;
     return nullptr; 
 }
 
-void Writer::fetchData(write_data* data){
+void Writer::fetchData(){
     //If dequeue unsuccesful wait for signal
+    
     pthread_mutex_lock(fetchLock);
-    if (writeComplete) {
-        pthread_mutex_unlock(queueLock);
+    
+    if (writeComplete && writeCount == Reader::readCounter) { 
+        pthread_mutex_unlock(fetchLock);
         pthread_exit(NULL);
     } else {
-        dequeue(data);
+        dequeue();
     pthread_mutex_unlock(fetchLock);
 
     }
 }
 
-
 void Writer::append(const std::string& line) {
-    //Lock queue. Signal queue on puch incase of waiting threads.
+      
     pthread_mutex_lock(queueLock);
         queue.push_back(line);
     pthread_cond_signal(queueCond);
-    pthread_mutex_unlock(queueLock);
-    
+    pthread_mutex_unlock(queueLock);   
 }
 
-bool Writer::dequeue(write_data* arg){
+bool Writer::dequeue(){
     //Wait for signal if queue empty.
     pthread_mutex_lock(queueLock);
     while(!queue.size()){
         pthread_cond_wait(queueCond, queueLock);
     } 
-        arg->writeLine = queue[0];
-        arg->writeId = ++lineCount;
+        this->writeLine = queue[0];
+        this->writeID = ++lineCount;
         queue.pop_front();
-        if(checkFinal(arg)) setFinished();
     pthread_mutex_unlock(queueLock);
     
     return true; 
 }
 
-void Writer::writeData(write_data* data){
+void Writer::writeData(){
      pthread_mutex_lock(writeLock);
 
-    while(data->writeId != writeCount){
+    while(this->writeID != writeCount){
         pthread_cond_wait(writeCond, writeLock);
     }
-        out << data->writeLine; 
+        out << this->writeLine; 
         writeCount++;    
     pthread_cond_broadcast(writeCond);
     pthread_mutex_unlock(writeLock);
@@ -130,10 +124,13 @@ void Writer::cleanUp() {
     pthread_mutex_destroy(fetchLock);
     pthread_mutex_destroy(writeLock);
     pthread_cond_destroy(queueCond);
-}
+    pthread_cond_destroy(writeCond);
 
-bool Writer::checkFinal(write_data* data) {
-    return finalCount && *finalCount == data->writeId;
+    // delete queueLock;
+    // delete fetchLock;
+    // delete writeLock;
+    // delete queueCond;
+    // delete writeCond;
 }
 
 void Writer::setFinal(int* count)  {
@@ -141,5 +138,5 @@ void Writer::setFinal(int* count)  {
 }
 
 void Writer::setFinished() {
-    
+    writeComplete = !writeComplete;
 }

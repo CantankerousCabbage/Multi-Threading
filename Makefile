@@ -1,35 +1,32 @@
 
-##
- # startup code provided by Paul Miller for COSC1114 - Operating Systems
- # Principles
- ##
+#
+#  startup code provided by Paul Miller for COSC1114 - Operating Systems
+#  Principles
+ #
+
 p1 = copier_files/
 p2 = mtcopier_files/
 
 .default: all
 
-all: mtcopier
+all: copier mtcopier
 
-# mtcopier: mtcopier
+clean: clean_copier clean_mtcopier
 
-# copier: copier
+clean_copier:
+	rm -rf ppd ${p1}*.o copier
 
-clean:
-	rm -rf ppd ${p2}*.o *.dSYM
+clean_mtcopier:
+	rm -rf ${p2}*.o mtcopier
 
-# copier: ${p1}main.o ${p1}reader.o ${p1}writer.o ${p1}timer.o
-# 	g++ -Wall -Werror -std=c++14 -g -O -o $@ $^ 
+copier: ${p1}main.o ${p1}reader.o ${p1}writer.o ${p1}timer.o
+	g++ -Wall -Werror -std=c++14 -g -O -o $@ $^	-lpthread
 
-# copier: ${p1}%.o: %.cpp
-# 	g++ -Wall -Werror -std=c++14 -g -O -c $^ -lpthread
+${p1}%.o: ${p1}%.cpp
+	g++ -Wall -Werror -std=c++14 -g -O -c -o $^
 
 mtcopier: ${p2}main.o ${p2}Reader.o ${p2}Writer.o ${p2}Timer.o
-	g++ -Wall -Werror -std=c++14 -g -O -o $@ $^ -lpthread
-
-
-# mtcopier: main.o Reader.o Writer.o Timer.o
-# 	g++ -Wall -Werror -std=c++14 -g -O -o $@ $^ -lpthread
+	g++ -Wall -Werror -std=c++20 -g -O -o $@ $^ -lpthread
 
 ${p2}%.o: %.cpp
-	g++ -Wall -Werror -std=c++14 -g -O -c $^ 
-# provide make targets here to build the two programs 
+	g++ -Wall -Werror -std=c++20 -g -O -c -o $^ 
