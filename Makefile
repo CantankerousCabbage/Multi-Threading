@@ -25,7 +25,7 @@ copier: ${p1}main.o ${p1}reader.o ${p1}writer.o ${p1}timer.o
 ${p1}%.o: ${p1}%.cpp
 	g++ -Wall -Werror -std=c++14 -g -O -c -o $^
 
-mtcopier: ${p2}main.o ${p2}Reader.o ${p2}Writer.o ${p2}Timer.o
+mtcopier: ${p2}main.o ${p2}Reader.o ${p2}Writer.o 
 	g++ -Wall -Werror -std=c++20 -g -O -o $@ $^ -lpthread
 
 ${p2}%.o: %.cpp

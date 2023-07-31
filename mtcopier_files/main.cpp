@@ -10,6 +10,7 @@
 
 using std::string;
 using std::shared_ptr;
+using std::make_shared;
 
 #define STANDARD_COMMAND 4
 #define CONFIG_ADDITIONAL 5
@@ -20,14 +21,38 @@ using std::shared_ptr;
 
 
 Reader* reader;
-Writer* writer;
-Timer* run;    
+Writer* writer;  
 
 void cleanup();
 int cmdError();
 
-bool parseCommandLine(int argc, char** argv, int* numThreads, std::string& input, 
-std::string& output, bool* timed);
+template<typename T>
+void  genObjects(T* objArray) {
+    for(unsigned i = 0; i < objArray->size(); i++) {
+        objArray[i] = new T(i);
+    }
+}
+
+template<typename T>
+void  runObjects(T* objArray) {
+    for(unsigned i = 0; i < objArray->size(); i++) {
+        objArray[i].run();
+    }
+}
+
+//Todo
+template<typename T>
+void  joinThreads(T* objArray) {
+    for(unsigned i = 0; i < objArray->size(); i++) {
+        if(pthread_join(objArray[i]->getThread(), NULL)) {
+            std::cout << "Error: unable to join thread" << std::endl;
+            exit(-1);
+        }
+    }
+}
+
+bool parseCommandLine(int argc, char** argv, shared_ptr<int> numThreads, std::string& input, 
+std::string& output, shared_ptr<bool> timed);
 
 int main(int argc, char** argv) {
     atexit(cleanup);
@@ -49,8 +74,8 @@ int main(int argc, char** argv) {
     
     std::string outFile;
     std::string inFile;
-    shared_ptr<bool> timed = std::make_shared<bool>();
-    shared_ptr<int> numThreads = std::make_shared<int>();
+    shared_ptr<bool> timed = make_shared<bool>();
+    shared_ptr<int> numThreads = make_shared<int>();
 
     bool success = parseCommandLine(argc, argv, numThreads, inFile, outFile, timed);
 
@@ -58,14 +83,14 @@ int main(int argc, char** argv) {
         
         reader = new Reader[(*numThreads / 2)];
         writer = new Writer[(*numThreads / 2)];
-        genObjects(reader);
-        genObjects(writer);
+        genObjects<Reader>(reader);
+        genObjects<Writer>(writer);
         Reader::init(inFile);
         Writer::init(outFile);
-        runObjects(reader);
-        runObjects(writer);
-        joinThreads(reader);
-        joinThreads(writer);
+        runObjects<Reader>(reader);
+        runObjects<Writer>(writer);
+        joinThreads<Reader>(reader);
+        joinThreads<Writer>(writer);
 
     } else {
         cmdError();
@@ -77,6 +102,8 @@ int main(int argc, char** argv) {
 bool parseCommandLine(int argc, char** argv, shared_ptr<int> numThreads, string& input, 
 string& output, shared_ptr<bool> timed){
 
+     shared_ptr<bool> timed;
+    shared_ptr<int> numThreads; 
     //c-string to int conversion
     *numThreads = atoi(argv[1]);
     input = string(argv[2]);
@@ -95,31 +122,6 @@ string& output, shared_ptr<bool> timed){
 void cleanup() {
     delete[] reader;
     delete[] writer;
-}
-
-template<typename T>
-void  genObjects(T* objArray) {
-    for(unsigned i = 0; i < objArray.size(); i++) {
-        objArray[i] = new T(i);
-    }
-}
-
-template<typename T>
-void  runObjects(T* objArray) {
-    for(unsigned i = 0; i < objArray.size(); i++) {
-        objArray[i].run();
-    }
-}
-
-//Todo
-template<typename T>
-void  joinThreads(T* objArray) {
-    for(unsigned i = 0; i < objArray.size(); i++) {
-        if(pthread_join(objectArray[i]->getThread(), NULL)) {
-            std::cout << "Error: unable to join thread" << std::endl;
-            exit(-1);
-        }
-    }
 }
 
 int cmdError() {
