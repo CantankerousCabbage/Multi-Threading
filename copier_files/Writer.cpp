@@ -3,14 +3,14 @@
  * Principles
  **/
 
-#include "writer.h"
+#include "Writer.h"
 
 /**
  * provide your implementation for the writer functions here
  **/
-writer::writer(const std::string& name) : name{name} {}
+Writer::Writer(const std::string& name) : name{name} {}
 
-void writer::run() {
+void Writer::run() {
     out.open(name);
 
     while (queue.size()) {
@@ -21,6 +21,6 @@ void writer::run() {
     out.close();
 }
 
-void writer::append(const std::string& line) {
+void Writer::append(const std::string& line) {
     queue.push_back(line);
 }

@@ -11,6 +11,8 @@
 #include <iostream>
 #include <string>
 
+#define FIRST 1
+
 using std::string;
 
 //Thread data structure to hold string as well as queue counter
@@ -58,36 +60,48 @@ class Writer {
         */
         void writeData();
 
-        /*
-        * Sets the final line number
-        */
-        static void setFinal(int* finalCounter);
+        // /*
+        // * Sets the final line number
+        // */
+        // static void setFinal(int* finalCounter);
 
         /*
         * Check if final line received
         */
         bool checkFinal(write_data* data);
 
+        /**
+         * Returns thread to. Used to invoke join in main.
+         **/
+        pthread_t getThread();
+
+        /**
+         * Returns thread to. Used to invoke join in main.
+         **/
+        int getID();
+
+
         static void setFinished();
 
         static int lineCount;
         static int writeCount;
-        static int* finalCount;
-        static bool writeComplete;
+        // static int* finalCount;
+        static bool finished;
+        static bool noData;
 
-        static pthread_mutex_t* queueLock;
-        static pthread_mutex_t* fetchLock;
-        static pthread_mutex_t* writeLock;
+        static pthread_mutex_t queueLock;
+        static pthread_mutex_t fetchLock;
+        static pthread_mutex_t writeLock;
 
-        static pthread_cond_t* queueCond;
-        static pthread_cond_t* writeCond;
+        static pthread_cond_t queueCond;
+        static pthread_cond_t writeCond;
 
         static std::ofstream out;
         static std::deque<std::string> queue;
         static std::string outFile;
 
     private:
-        pthread_t* writeThread;
+        pthread_t writeThread;
         string writeLine;
         int writeID;
         int threadID;

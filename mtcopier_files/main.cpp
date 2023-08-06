@@ -7,10 +7,12 @@
 #include <cstdlib>
 #include <memory>
 #include <iostream>
+#include <vector>
 
 using std::string;
 using std::shared_ptr;
 using std::make_shared;
+using std::vector;
 
 #define STANDARD_COMMAND 4
 #define CONFIG_ADDITIONAL 5
@@ -20,30 +22,35 @@ using std::make_shared;
 
 
 
-Reader* reader;
-Writer* writer;  
+Reader** reader;
+Writer** writer;  
 
 void cleanup();
 int cmdError();
 
 template<typename T>
-void  genObjects(T* objArray) {
-    for(unsigned i = 0; i < objArray->size(); i++) {
+void  genObjects(T** objArray, int& length) {
+    std::cout << "Size Array: " << length << std::endl;
+    for(int i = 0; i < length; i++) {
+        std::cout << "Initialised Object ID:" << i << std::endl;
         objArray[i] = new T(i);
+        std::cout << "Initialised Object ID:" << objArray[i]->getID() << std::endl;
     }
 }
 
 template<typename T>
-void  runObjects(T* objArray) {
-    for(unsigned i = 0; i < objArray->size(); i++) {
-        objArray[i].run();
+void  runObjects(T** objArray, int& length) {
+    std::cout << "Run Start Loop" << std::endl;
+    for(int i = 0; i < length; i++) {
+        std::cout << "Running Thread: " << i << std::endl;
+        objArray[i]->run();
     }
 }
 
 //Todo
 template<typename T>
-void  joinThreads(T* objArray) {
-    for(unsigned i = 0; i < objArray->size(); i++) {
+void  joinThreads(T** objArray, int& length) {
+    for(int i = 0; i < length; i++) {
         if(pthread_join(objArray[i]->getThread(), NULL)) {
             std::cout << "Error: unable to join thread" << std::endl;
             exit(-1);
@@ -80,17 +87,25 @@ int main(int argc, char** argv) {
     bool success = parseCommandLine(argc, argv, numThreads, inFile, outFile, timed);
 
     if(success) {
+        std::cout << "numThreads: " << *numThreads << std::endl;
+        std::cout << "Pointers" << std::endl;
+        reader = new Reader*[25];
         
-        reader = new Reader[(*numThreads / 2)];
-        writer = new Writer[(*numThreads / 2)];
-        genObjects<Reader>(reader);
-        genObjects<Writer>(writer);
+        writer = new Writer*[25];
+        std::cout << "Gen" << std::endl;
+        genObjects<Reader>(reader, *numThreads);
+        genObjects<Writer>(writer, *numThreads);
+        std::cout << "Init" << std::endl;
         Reader::init(inFile);
         Writer::init(outFile);
-        runObjects<Reader>(reader);
-        runObjects<Writer>(writer);
-        joinThreads<Reader>(reader);
-        joinThreads<Writer>(writer);
+        std::cout << "Run" << std::endl;
+        runObjects<Reader>(reader, *numThreads);
+        std::cout << "Run Write" << std::endl;
+        runObjects<Writer>(writer, *numThreads);
+        std::cout << "Join" << std::endl;
+        joinThreads<Reader>(reader, *numThreads);
+        joinThreads<Writer>(writer, *numThreads);
+        std::cout << "Complete" << std::endl;
 
     } else {
         cmdError();
@@ -101,21 +116,23 @@ int main(int argc, char** argv) {
 
 bool parseCommandLine(int argc, char** argv, shared_ptr<int> numThreads, string& input, 
 string& output, shared_ptr<bool> timed){
-
-     shared_ptr<bool> timed;
-    shared_ptr<int> numThreads; 
-    //c-string to int conversion
-    *numThreads = atoi(argv[1]);
-    input = string(argv[2]);
-    output = string(argv[3]);
-
-    bool valid = *numThreads >= MIN_THREADS && *numThreads <= MAX_THREADS;
-
-    if(argc > STANDARD_COMMAND) {
-        *timed = (argc == CONFIG_ADDITIONAL && string(argv[4]) == TIMED) ? true : cmdError();
-        valid = valid && *timed;
-    }
-
+ 
+   bool valid;
+    
+    if (argc < STANDARD_COMMAND) {
+        cmdError(); 
+    } else  {   
+        //c-string to int conversion 
+        *numThreads = (atoi(argv[1])) / 2;
+        input = string(argv[2]);
+        output = string(argv[3]);
+        valid = *numThreads >= MIN_THREADS && *numThreads <= MAX_THREADS;
+        
+        if(argc > STANDARD_COMMAND) {
+            *timed = (argc == CONFIG_ADDITIONAL && string(argv[4]) == TIMED) ? true : cmdError();
+            valid = valid && *timed;
+        } 
+    } 
     return valid;
 }
 

@@ -1,26 +1,30 @@
 
-#include "reader.h"
-#include "writer.h"
+#include "Reader.h"
+#include "Writer.h"
 #include <cstdlib>
 #include <time.h>
+#include <memory>
+
+using std::shared_ptr;
 
 #ifndef TIMER
 #define TIMER
 
-class timer {
+class Timer {
 
     public:
         /* Creates timer from which we'll time and record our functions
         * 
         */
-        timer(writer& thewriter, reader& thereader);
+        Timer(shared_ptr<Writer> thewriter, shared_ptr<Reader> thereader);
 
         void run();
         void runTimed();
     private:
 
         // const std::string& inFile;
-        writer& thewriter;
-        reader& thereader;
+        shared_ptr<Writer> thewriter;
+        shared_ptr<Reader> thereader;
 };
+
 #endif

@@ -19,10 +19,10 @@ clean_copier:
 clean_mtcopier:
 	rm -rf ${p2}*.o mtcopier
 
-copier: ${p1}main.o ${p1}reader.o ${p1}writer.o ${p1}timer.o
+copier: ${p1}main.o ${p1}Reader.o ${p1}Writer.o ${p1}Timer.o
 	g++ -Wall -Werror -std=c++14 -g -O -o $@ $^	-lpthread
 
-${p1}%.o: ${p1}%.cpp
+${p1}%.o: %.cpp
 	g++ -Wall -Werror -std=c++14 -g -O -c -o $^
 
 mtcopier: ${p2}main.o ${p2}Reader.o ${p2}Writer.o 

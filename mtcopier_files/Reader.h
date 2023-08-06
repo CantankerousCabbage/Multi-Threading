@@ -67,12 +67,17 @@ class Reader {
     /**
      * Returns thread to. Used to invoke join in main.
      **/
-    pthread_t* getThread();
+    pthread_t getThread();
 
     /**
      * Returns thread to. Used to invoke join in main.
      **/
     void setFinal();
+
+    /**
+     * Returns thread to. Used to invoke join in main.
+     **/
+    int getID();
 
 
    // private:
@@ -80,16 +85,15 @@ class Reader {
     static int readCounter;
     static bool readComplete;
 
-    static pthread_mutex_t* appendLock;
-    static pthread_mutex_t* readLock;
-    static pthread_cond_t* appendCond;
+    static pthread_mutex_t appendLock;
+    static pthread_mutex_t readLock;
+    static pthread_cond_t appendCond;
 
     static string inFile;
     static std::ifstream in;
     
-
    private:
-    pthread_t* readThread;
+    pthread_t readThread;
     string readLine;
     int readID;
     int threadID;

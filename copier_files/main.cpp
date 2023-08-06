@@ -2,51 +2,65 @@
  * startup code provided by Paul Miller for COSC1114 - Operating Systems
  * Principles
  **/
-#include "reader.h"
-#include "writer.h"
-#include "timer.h"
+#include "Reader.h"
+#include "Writer.h"
+#include "Timer.h"
 #include <cstdlib>
 #include <memory>
 
-#define INPUT_MIN 2
+using std::string;
+using std::shared_ptr;
+using std::unique_ptr;
+using std::make_shared;
+using std::make_unique;
+
+#define STANDARD_COMMAND 3
 #define CONFIG_ADDITIONAL 4
 #define TIMED "-t"
 
-/* global variables if needed go here */
+
+int cmdError();
+
+bool parseCommandLine(int argc, char** argv, bool* timed);
+
 int main(int argc, char** argv) {
-    /* check command line arguments */
-
-
-    std::shared_ptr<reader> theReader; 
-    std::shared_ptr<writer> theWriter;
+ 
     bool* timed = new bool(false);
-
-    parseCommandLine(argc, argv, theReader, theWriter, timed);
-    std::unique_ptr<timer> run = std::make_unique<timer>(theWriter, theReader);
-
-    if (*timed) { run->runTimed();
-    } else run->run();
-
+    bool success = parseCommandLine(argc, argv, timed);
+    std::cout << "C1" << std::endl;
+    if(success){
+        shared_ptr<Writer> theWriter = make_shared<Writer>(string(argv[2]));
+        shared_ptr<Reader> theReader = make_shared<Reader>(string(argv[1]), theWriter); 
+        unique_ptr<Timer> run = make_unique<Timer>(theWriter, theReader);
+        std::cout << "C1" << std::endl;
+        if (*timed) { run->runTimed();
+        } else run->run();
+    } else {
+        cmdError();
+    }
+    
     delete timed;
     return EXIT_SUCCESS;
 }
 
-bool parseCommandLine(int argc, char** argv, std::shared_ptr<reader> theReader, 
-std::shared_ptr<writer> theWriter, bool* timed){
+bool parseCommandLine(int argc, char** argv, bool* timed){
+    bool valid = true;
 
-    if (argc < INPUT_MIN) {
-
+    if (argc >= STANDARD_COMMAND && argc <= CONFIG_ADDITIONAL) {
+            if(argc == CONFIG_ADDITIONAL){
+                *timed, valid = (string(argv[3]) == TIMED);
+            }       
+    } else { 
+        valid = false;
     }
-    theReader = std::make_shared<reader>(std::string(argv[1]));
-    theWriter = std::make_shared<writer>(std::string(argv[2]));
-    *timed = (argc == CONFIG_ADDITIONAL && argv[3] == TIMED) ? true : cmdError();
+    return valid;
 }
 
 int cmdError() {
     std::cout << 
     "Error, try following input for standard compile:\n"
     "timed: $./mtcopier infile outfile -t\n" 
-    "untimed: $./mtcopier infile outfile -t\n" 
+    "untimed: $./mtcopier infile outfile\n" 
     << std::endl;
 
     return 0;

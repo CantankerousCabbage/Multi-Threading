@@ -6,14 +6,19 @@
 #include <iostream>
 #include <string>
 #include <deque>
+#include <memory>
+
+using std::shared_ptr;
+
 #ifndef WRITER
 #define WRITER
-class writer {
+
+class Writer {
    public:
     /**
      * creates the writer instance that writes out to the file
      **/
-    writer(const std::string& name);
+    Writer(const std::string& name);
     /**
      * does the actual writing
      **/
