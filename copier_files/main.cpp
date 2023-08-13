@@ -15,52 +15,77 @@ using std::make_shared;
 using std::make_unique;
 
 #define STANDARD_COMMAND 3
-#define CONFIG_ADDITIONAL 4
+#define CONFIG_ADDITIONAL 5
+#define DEFAULT 1
 #define TIMED "-t"
 
 
 int cmdError();
 
-bool parseCommandLine(int argc, char** argv, bool* timed);
+bool parseCommandLine(int argc, char** argv, shared_ptr<bool> timed, shared_ptr<int> numRuns);
 
 int main(int argc, char** argv) {
  
-    bool* timed = new bool(false);
-    bool success = parseCommandLine(argc, argv, timed);
-    std::cout << "C1" << std::endl;
+    shared_ptr<bool> timed = make_shared<bool>();
+    shared_ptr<int> numRuns = make_shared<int>(DEFAULT);
+
+    bool success = parseCommandLine(argc, argv, timed, numRuns);
+
     if(success){
         shared_ptr<Writer> theWriter = make_shared<Writer>(string(argv[2]));
         shared_ptr<Reader> theReader = make_shared<Reader>(string(argv[1]), theWriter); 
         unique_ptr<Timer> run = make_unique<Timer>(theWriter, theReader);
-        std::cout << "C1" << std::endl;
-        if (*timed) { run->runTimed();
-        } else run->run();
+        int runs = 0;
+
+        while(runs != *numRuns)
+        {
+            if (*timed) { run->runTimed();
+            } else run->run();
+            std::cout << "here" << std::endl;
+            runs++;
+        } 
+        if(*numRuns > DEFAULT) run->recordResults(*numRuns);
     } else {
         cmdError();
     }
     
-    delete timed;
     return EXIT_SUCCESS;
 }
 
-bool parseCommandLine(int argc, char** argv, bool* timed){
-    bool valid = true;
+bool parseCommandLine(int argc, char** argv, shared_ptr<bool> timed, shared_ptr<int> numRuns){
 
-    if (argc >= STANDARD_COMMAND && argc <= CONFIG_ADDITIONAL) {
-            if(argc == CONFIG_ADDITIONAL){
-                *timed, valid = (string(argv[3]) == TIMED);
-            }       
-    } else { 
-        valid = false;
+    auto timedCheck = [](string config){return config == TIMED;};
+    bool valid = false;
+
+    if (argc > STANDARD_COMMAND && argc <= CONFIG_ADDITIONAL) {
+      
+        try{   
+            if(argc == CONFIG_ADDITIONAL - 1) {
+                *timed = timedCheck(string(argv[3]));
+                valid = *timed;
+            } else if(argc == CONFIG_ADDITIONAL){
+                *timed = timedCheck(string(argv[3]));
+                *numRuns = atoi(argv[4]);
+                valid = (*timed && *numRuns);
+            }    
+        }catch(std::invalid_argument){
+            valid = false;
+        }    
+    } else {
+        valid = true;
     }
+    
     return valid;
 }
 
 int cmdError() {
     std::cout << 
     "Error, try following input for standard compile:\n"
-    "timed: $./mtcopier infile outfile -t\n" 
-    "untimed: $./mtcopier infile outfile\n" 
+    "timed: $./copier infile outfile -t\n" 
+    "OR\n"
+    "timed: $./copier infile outfile -t x\n" 
+    "x - number of runs\n"
+    "untimed: $./copier infile outfile\n" 
     << std::endl;
 
     return 0;

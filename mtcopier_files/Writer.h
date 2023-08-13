@@ -10,40 +10,36 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <memory>
+#include "Timer.h"
 
 #define FIRST 1
+#define INITIAL 0
+#define BUFFER 50
 
 using std::string;
-
-//Thread data structure to hold string as well as queue counter
-typedef struct {
-    int writeId;
-    std::string writeLine;
-} write_data;
+using std::shared_ptr;
 
 class Writer {
     public:
-        /**
-         * Please note that methods and data need to be static as there's a
-         * variety of information that needs to be coordinated between writers
-         * such as locks and other shared data. Also, as the pthread library
-         * is a c library, it does not know about classes so ruuner in particular
-         * needs to be static. You can pass in instances into the function as
-         * pointers though.
-         **/
 
         Writer();
         Writer(int ID);
         ~Writer();
-        static void init(const std::string& name);
+        static void init(const std::string& name, shared_ptr<Timer> timer);
         static void* runner(void*);
-        void cleanUp();
-        void run();
+        static void cleanUp();
+        
 
         /*
         * Thread safe append. Waits on conditional if dequeue holds lock.
         */
-        static void append(const std::string& line);
+        static void append(const std::string& line, Reader* reader);
+
+        /*
+        * Handle write loop from buffer to output
+        */
+        void run();
 
         /*
         * Thread safe deque. Waits on conditional if queue empty of if append holds lock.
@@ -51,27 +47,12 @@ class Writer {
         bool dequeue();
 
         /*
-        * Fetch data from queue for writing
-        */
-        void fetchData();
-
-        /*
         * Write data to output file
         */
         void writeData();
 
-        // /*
-        // * Sets the final line number
-        // */
-        // static void setFinal(int* finalCounter);
-
-        /*
-        * Check if final line received
-        */
-        bool checkFinal(write_data* data);
-
         /**
-         * Returns thread to. Used to invoke join in main.
+         * Returns thread for join.
          **/
         pthread_t getThread();
 
@@ -80,27 +61,36 @@ class Writer {
          **/
         int getID();
 
+        /**
+         * Returns time log
+         **/
+        int gettLog();
+
 
         static void setFinished();
 
         static int lineCount;
         static int writeCount;
+
+        static int dequeueWait;
+        static int writeWait;
+        
         // static int* finalCount;
-        static bool finished;
-        static bool noData;
+        static bool queuedComplete;
+        static bool writeComplete;
 
         static pthread_mutex_t queueLock;
-        static pthread_mutex_t fetchLock;
         static pthread_mutex_t writeLock;
 
         static pthread_cond_t queueCond;
         static pthread_cond_t writeCond;
 
+        static shared_ptr<Timer> timer;
         static std::ofstream out;
         static std::deque<std::string> queue;
-        static std::string outFile;
 
     private:
+        TimeLog* tLog;
         pthread_t writeThread;
         string writeLine;
         int writeID;

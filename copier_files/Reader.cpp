@@ -19,4 +19,5 @@ void Reader::run() {
     }
 
     in.close();
+    theWriter->close();
 }

@@ -14,16 +14,22 @@ pthread_mutex_t Reader::appendLock;
 pthread_mutex_t Reader::readLock;
 pthread_cond_t Reader::appendCond;
 
+shared_ptr<Timer> Reader::timer;
 std::ifstream Reader::in;
 string Reader::inFile;
 
 
 Reader::Reader(){}
-Reader::Reader(int ID) : threadID{ID} {}
-Reader::~Reader(){}
+Reader::Reader(int ID) : threadID{ID} {
+    this->tLog = (Reader::timer) ? new TimeLog() : nullptr;
+}
+Reader::~Reader(){
+    delete tLog;
+}
 
-void Reader::init(const std::string& fileName) {
+void Reader::init(const std::string& fileName, shared_ptr<Timer> timer) {
     
+    Reader::timer = timer;
     Reader::inFile = fileName;
     Reader::in.open(inFile);
 
@@ -37,82 +43,60 @@ void Reader::init(const std::string& fileName) {
 
     pthread_mutex_init(&readLock, NULL);
     pthread_mutex_init(&appendLock, NULL);
-    pthread_cond_init(&appendCond, NULL);
-
-      
+    pthread_cond_init(&appendCond, NULL);   
 }
 
 void Reader::run() {
     pthread_create(&readThread, NULL, &runner, this);
-    // cleanUp();
 }
 
 void* Reader::runner(void* arg) { 
     Reader* reader = (Reader*) arg;
     
-    //Check that eof not reached before attempting read.
-    // if(in.eof()) {
-    //   in.close();  
-    // } 
-    
     while(!Reader::readComplete) {  
         reader->getLine();
         reader->queueLine();  
     }
-
+   
     return NULL;
 }
 
 void Reader::getLine() {
-    //Lock input on read
-     
+    
+    if(timer) this->tLog->startLockTimer();
+
     pthread_mutex_lock(&readLock); 
-      
+
+        
         if(!Reader::readComplete && std::getline(in, this->readLine)){  
-              
-            this->readID = ++Reader::readCounter;  
+            this->readID = ++Reader::readCounter; 
+           
         } else {
+
             if(!Reader::readComplete) Reader::readFinished();
             pthread_mutex_unlock(&readLock);
             pthread_exit(NULL);
         }
-    pthread_mutex_unlock(&readLock);
-    
+    pthread_mutex_unlock(&readLock);  
+   
+   if(timer) tLog->lockOne = tLog->endLockTimer(); 
+        
 }
 
 void Reader::queueLine() {
-    pthread_mutex_lock(&appendLock);
-    //Threads wait if it isn't their lines turn to append.
-    while(this->readID != Reader::queueCounter){
-        pthread_cond_wait(&appendCond, &appendLock);
-    }   
-        Writer::append(this->readLine);
-        Reader::queueCounter++;
-    //On counter increment broadcast to waiting threads to recheck conition;   
-    pthread_cond_broadcast(&appendCond);
-    pthread_mutex_unlock(&appendLock);
+ 
+        Writer::append(this->readLine, this);
 }
 
-//TODO FIX
 void Reader::readFinished() {
-    Reader::readComplete = !Reader::readComplete;
-    Writer::setFinished();
+    Reader::readComplete = true;
 }
-
-
 
 void Reader::cleanUp(){ 
     
-    // pthread_mutex_destroy(&appendLock);
-    // pthread_mutex_destroy(&readLock);
-    // pthread_cond_destroy(&appendCond);
-
-    // delete appendLock;
-    // delete readLock;
-    // delete appendCond;
-
-    // delete readCounter;
-    // delete readComplete;
+    pthread_mutex_destroy(&appendLock);
+    pthread_mutex_destroy(&readLock);
+    pthread_cond_destroy(&appendCond);
 }
 
 pthread_t Reader::getThread(){
@@ -121,5 +105,9 @@ pthread_t Reader::getThread(){
 
 int Reader::getID(){
     return this->threadID;
+}
+
+int Reader::getReadID(){
+    return this->readID;
 }
 

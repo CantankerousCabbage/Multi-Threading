@@ -15,42 +15,52 @@ using std::make_shared;
 using std::vector;
 
 #define STANDARD_COMMAND 4
-#define CONFIG_ADDITIONAL 5
+#define CONFIG_ADDITIONAL 6
+#define DEFAULT 1
 #define MAX_THREADS 250
 #define MIN_THREADS 4
 #define TIMED "-t"
 
-
-
+//Thread data object arrays.
 Reader** reader;
 Writer** writer;  
 
 void cleanup();
 int cmdError();
 
+/*
+* Generic functions to accomodate reader and writer objects as follows: 
+* 1. Generating thread data objects
+* 2. Creating threads
+* 3. Joining threads.
+*/
 template<typename T>
 void  genObjects(T** objArray, int& length) {
-    std::cout << "Size Array: " << length << std::endl;
     for(int i = 0; i < length; i++) {
-        std::cout << "Initialised Object ID:" << i << std::endl;
         objArray[i] = new T(i);
-        std::cout << "Initialised Object ID:" << objArray[i]->getID() << std::endl;
     }
 }
 
 template<typename T>
 void  runObjects(T** objArray, int& length) {
-    std::cout << "Run Start Loop" << std::endl;
     for(int i = 0; i < length; i++) {
-        std::cout << "Running Thread: " << i << std::endl;
+        std::cout << "Run ID:" << i << std::endl;
         objArray[i]->run();
     }
 }
 
-//Todo
+template<typename T>
+void logTimes(T** objArray, int& length) {
+    for(int i = 0; i < length; i++) {
+        Timer::updateTime(objArray[i]->tLog);
+        
+    }
+}
+
 template<typename T>
 void  joinThreads(T** objArray, int& length) {
     for(int i = 0; i < length; i++) {
+        std::cout << "Joining ID:" << i << std::endl;
         if(pthread_join(objArray[i]->getThread(), NULL)) {
             std::cout << "Error: unable to join thread" << std::endl;
             exit(-1);
@@ -58,55 +68,59 @@ void  joinThreads(T** objArray, int& length) {
     }
 }
 
+/*
+* Parses command line, runs validation on input.
+*/
 bool parseCommandLine(int argc, char** argv, shared_ptr<int> numThreads, std::string& input, 
-std::string& output, shared_ptr<bool> timed);
+std::string& output, shared_ptr<bool> timed, shared_ptr<int> numRuns);
 
 int main(int argc, char** argv) {
+    //Cleanup method
     atexit(cleanup);
-    /*
-     * 1.   Check command line arguments
-     * 
-     * 2.   Process command line arguments
-     * 
-     * 3.   Initiliaze the reader and writer classes
-     * 
-     * 4.   Initialize the running of each thread. Note you just call run() on each
-     *      object here, you'll call pthread_create itself in the run function.
-     * 
-     * 5.   Have loop here waiting for the threads to bomplete. Please see
-     *      section on avoiding busy waiting on the assignment specification to see
-     *      what need to be done here
-     * 6.   Load the file and copy it to the destination 
-     */
     
     std::string outFile;
     std::string inFile;
     shared_ptr<bool> timed = make_shared<bool>();
     shared_ptr<int> numThreads = make_shared<int>();
+    shared_ptr<int> numRuns = make_shared<int>(DEFAULT);
+    
+    bool success = parseCommandLine(argc, argv, numThreads, inFile, outFile, timed,  numRuns);
 
-    bool success = parseCommandLine(argc, argv, numThreads, inFile, outFile, timed);
+    shared_ptr<Timer> timer = (*timed) ? make_shared<Timer>(numRuns) : nullptr;
+    int counter = 0;
 
     if(success) {
-        std::cout << "numThreads: " << *numThreads << std::endl;
-        std::cout << "Pointers" << std::endl;
-        reader = new Reader*[25];
-        
-        writer = new Writer*[25];
-        std::cout << "Gen" << std::endl;
-        genObjects<Reader>(reader, *numThreads);
-        genObjects<Writer>(writer, *numThreads);
-        std::cout << "Init" << std::endl;
-        Reader::init(inFile);
-        Writer::init(outFile);
-        std::cout << "Run" << std::endl;
-        runObjects<Reader>(reader, *numThreads);
-        std::cout << "Run Write" << std::endl;
-        runObjects<Writer>(writer, *numThreads);
-        std::cout << "Join" << std::endl;
-        joinThreads<Reader>(reader, *numThreads);
-        joinThreads<Writer>(writer, *numThreads);
-        std::cout << "Complete" << std::endl;
+        while(counter != *numRuns){
+            if(timer) timer->start();
+            
+            reader = new Reader*[*numThreads];
+            writer = new Writer*[*numThreads];
+            
+            genObjects<Reader>(reader, *numThreads);
+            genObjects<Writer>(writer, *numThreads);
+            
+            Reader::init(inFile, timer);
+            Writer::init(outFile, timer);
+            
+            runObjects<Reader>(reader, *numThreads);
+            runObjects<Writer>(writer, *numThreads);
 
+            if(timer){
+                logTimes(reader,  *numThreads);
+                logTimes(reader,  *numThreads);
+            }
+            
+            joinThreads<Reader>(reader, *numThreads);
+            joinThreads<Writer>(writer, *numThreads);
+
+            Reader::cleanUp;
+            Writer::cleanUp;
+
+            if(timer){
+                timer->end();
+                timer->reset();
+            }
+        }
     } else {
         cmdError();
     }
@@ -115,36 +129,55 @@ int main(int argc, char** argv) {
 }
 
 bool parseCommandLine(int argc, char** argv, shared_ptr<int> numThreads, string& input, 
-string& output, shared_ptr<bool> timed){
- 
-   bool valid;
+string& output, shared_ptr<bool> timed,  shared_ptr<int> numRuns) {
+
+    auto timedCheck = [](string config){return config == TIMED;};
+    bool valid = false;
     
-    if (argc < STANDARD_COMMAND) {
-        cmdError(); 
-    } else  {   
-        //c-string to int conversion 
-        *numThreads = (atoi(argv[1])) / 2;
+    if (argc >= STANDARD_COMMAND && argc <= CONFIG_ADDITIONAL) {
+ 
         input = string(argv[2]);
         output = string(argv[3]);
-        valid = *numThreads >= MIN_THREADS && *numThreads <= MAX_THREADS;
-        
-        if(argc > STANDARD_COMMAND) {
-            *timed = (argc == CONFIG_ADDITIONAL && string(argv[4]) == TIMED) ? true : cmdError();
-            valid = valid && *timed;
-        } 
+        //Try/catch for our integer conversions
+        try{  
+            *numThreads = (atoi(argv[1])) / 2;
+            valid = *numThreads >= MIN_THREADS && *numThreads <= MAX_THREADS;
+            if(argc == CONFIG_ADDITIONAL - 1) {
+                *timed = timedCheck(string(argv[4]));
+                valid = valid && *timed;
+            } else if(argc == CONFIG_ADDITIONAL){
+                *timed = timedCheck(string(argv[4]));
+                *numRuns = atoi(argv[5]);
+                valid = (valid && *timed && *numRuns);
+            }   
+        }catch(std::invalid_argument){
+            valid = false;
+        }    
     } 
+
+    if(!valid) cmdError();
+
     return valid;
 }
 
+/*
+* Cleanup up dynamic memory
+*/
 void cleanup() {
     delete[] reader;
     delete[] writer;
 }
 
+/*
+* Error Message
+*/
 int cmdError() {
     std::cout << 
     "Error, try following input for standard compile:\n"
     "timed: $./mtcopier numthreads infile outfile -t\n" 
+    "OR"
+    "timed: $./mtcopier numthreads infile outfile -t x\n"
+    "x - number of times to run program"
     "untimed: $./mtcopier numthreads infile outfile\n" 
     << MIN_THREADS << " <= Thread count <= " << MAX_THREADS << "\n" 
     << std::endl;

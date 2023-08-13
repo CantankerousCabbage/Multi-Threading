@@ -29,8 +29,11 @@ class Writer {
      **/
     void append(const std::string& line);
 
+    void close();
+
 
    private:
+    bool first;
     std::ofstream out;
     const std::string name;
     std::deque<std::string> queue;

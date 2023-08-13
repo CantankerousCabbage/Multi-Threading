@@ -10,20 +10,16 @@
 #include <iostream>
 #include <string>
 #include <memory>
+#include "Timer.h"
 
 using std::string;
 using std::shared_ptr;
 
 class Reader {
    public:
-    /* this class has a bunch of static (which means shared in a class)
-     * because we need to share the state between threads. For example, we
-     * are reading from the same file, should have the same locks for all
-     * readers, etc.
-     */
 
     /*
-     * Constructors/Destructors
+     * Constructors/Destructors 
      */
     Reader();
     Reader(int ID);
@@ -32,10 +28,10 @@ class Reader {
     /*
      * Initialises shared data for class.
      */
-    static void init(const std::string& name);
+    static void init(const std::string& name, shared_ptr<Timer> timer);
 
     /*
-     * Implements thread. Must be static as c doesn't recognise 'this' implicit.
+     * Handles thread loop, write to buffer append
      */
     static void* runner(void*);
 
@@ -62,7 +58,7 @@ class Reader {
     /**
      * Clean up pointers and pthread mutex, condition variables.
      **/
-    void cleanUp();
+    static void cleanUp();
 
     /**
      * Returns thread to. Used to invoke join in main.
@@ -72,31 +68,38 @@ class Reader {
     /**
      * Returns thread to. Used to invoke join in main.
      **/
-    void setFinal();
+    int getID();
 
     /**
      * Returns thread to. Used to invoke join in main.
      **/
-    int getID();
+    int getReadID();
 
+    /**
+     * Returns time log
+     **/
+    int gettLog();
 
-   // private:
+    friend class Writer;
+
     static int queueCounter;
     static int readCounter;
     static bool readComplete;
-
     static pthread_mutex_t appendLock;
     static pthread_mutex_t readLock;
     static pthread_cond_t appendCond;
-
+    static shared_ptr<Timer> timer;
     static string inFile;
     static std::ifstream in;
-    
-   private:
-    pthread_t readThread;
-    string readLine;
-    int readID;
-    int threadID;
+
+    protected:
+        TimeLog* tLog;
+
+    private:
+        pthread_t readThread;
+        string readLine;
+        int readID;
+        int threadID;
     
 };
 #endif

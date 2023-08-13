@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <time.h>
 #include <memory>
+#include <vector>
 
 using std::shared_ptr;
 
@@ -20,9 +21,12 @@ class Timer {
 
         void run();
         void runTimed();
+        void recordResults(int runs);
     private:
 
         // const std::string& inFile;
+        
+        double timeLog;
         shared_ptr<Writer> thewriter;
         shared_ptr<Reader> thereader;
 };
