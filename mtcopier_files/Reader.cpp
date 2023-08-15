@@ -47,7 +47,11 @@ void Reader::init(const std::string& fileName, shared_ptr<Timer> timer) {
 }
 
 void Reader::run() {
-    pthread_create(&readThread, NULL, &runner, this);
+    //Add error handling
+    if(pthread_create(&readThread, NULL, &runner, this)){
+        std::cout << "Error: unable to create thread" << std::endl;
+            exit(-1);
+    }
 }
 
 void* Reader::runner(void* arg) { 
@@ -79,7 +83,7 @@ void Reader::getLine() {
         }
     pthread_mutex_unlock(&readLock);  
    
-   if(timer) tLog->lockOne = tLog->endLockTimer(); 
+   if(timer) tLog->endLockTimer(tLog->lockOne); 
         
 }
 

@@ -107,7 +107,7 @@ int main(int argc, char** argv) {
 
             if(timer){
                 logTimes(reader,  *numThreads);
-                logTimes(reader,  *numThreads);
+                logTimes(writer,  *numThreads);
             }
             
             joinThreads<Reader>(reader, *numThreads);

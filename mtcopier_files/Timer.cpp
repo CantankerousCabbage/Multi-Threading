@@ -5,7 +5,9 @@
 pthread_mutex_t Timer::timeLock; 
 
 Timer::Timer(){};
-Timer::Timer( shared_ptr<int>  numRuns) : numRuns{numRuns}{}
+Timer::Timer( shared_ptr<int>  numRuns) : numRuns{numRuns}{
+
+}
 Timer::~Timer(){};
 
 void Timer::init(){

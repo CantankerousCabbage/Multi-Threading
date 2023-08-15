@@ -55,7 +55,10 @@ void Writer::init(const std::string& name, shared_ptr<Timer> timer) {
 }
 
 void Writer::run() {
-    pthread_create(&writeThread, NULL, &runner, this);  
+    if(pthread_create(&writeThread, NULL, &runner, this)){
+        std::cout << "Error: unable create write thread" << std::endl;
+        exit(-1);
+    }
 }
 
 void* Writer::runner(void* arg) { 
@@ -83,7 +86,7 @@ bool Writer::dequeue(){
         pthread_cond_wait(&queueCond, &queueLock);
         Writer::dequeueWait--;
     } 
-    if(timer) tLog->condOne = tLog->endWaitTimer();
+    if(timer) tLog->endWaitTimer(tLog->condOne);
 
     //Safeguard agaisnt outstanding threads in queue on completion
     if(queue.size() != 0){
@@ -99,7 +102,7 @@ bool Writer::dequeue(){
     }
 
     pthread_mutex_unlock(&queueLock);
-    if(timer) tLog->lockOne = tLog->endLockTimer();
+    if(timer) tLog->endLockTimer(tLog->lockOne);
 
     return true; 
 }
@@ -115,7 +118,7 @@ void Writer::append(const std::string& line, Reader* reader) {
     while(reader->getReadID() != Reader::queueCounter || queue.size() == BUFFER){
         pthread_cond_wait(&Reader::appendCond, &queueLock);        
     }  
-    if(timer) reader->tLog->condOne = reader->tLog->endWaitTimer();
+    if(timer) reader->tLog->endWaitTimer(reader->tLog->condOne);
 
     if(reader->getReadID() == Reader::queueCounter) queue.push_back(line);
     
@@ -137,7 +140,7 @@ void Writer::append(const std::string& line, Reader* reader) {
     }
     pthread_mutex_unlock(&queueLock); 
 
-    if(timer) reader->tLog->lockTwo = reader->tLog->endLockTimer();
+    if(timer) reader->tLog->endLockTimer(reader->tLog->lockTwo);
        
 }
 
@@ -155,7 +158,7 @@ void Writer::writeData(){
         pthread_cond_wait(&writeCond, &writeLock); 
         Writer::writeWait--;   
     }  
-    if(timer) this->tLog->condTwo = this->tLog->endWaitTimer(); 
+    if(timer) this->tLog->endWaitTimer(this->tLog->condTwo); 
     
     if(!writeComplete){
         //Prepend newline after first write.
@@ -180,7 +183,7 @@ void Writer::writeData(){
     std::cout << "Wait W count" << Writer::writeWait << std::endl;    
     pthread_mutex_unlock(&writeLock);
     
-    if(timer) this->tLog->lockTwo = this->tLog->endLockTimer();
+    if(timer) this->tLog->endLockTimer(this->tLog->lockTwo);
 }
 
 void Writer::cleanUp() {
