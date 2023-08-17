@@ -92,8 +92,8 @@ class Reader {
     static string inFile;
     static std::ifstream in;
 
-    protected:
-        TimeLog* tLog;
+    TimeLog* tLog;
+    
 
     private:
         pthread_t readThread;

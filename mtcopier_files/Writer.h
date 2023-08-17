@@ -88,9 +88,9 @@ class Writer {
         static shared_ptr<Timer> timer;
         static std::ofstream out;
         static std::deque<std::string> queue;
+        TimeLog* tLog;
 
     private:
-        TimeLog* tLog;
         pthread_t writeThread;
         string writeLine;
         int writeID;

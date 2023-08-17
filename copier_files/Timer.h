@@ -5,11 +5,16 @@
 #include <time.h>
 #include <memory>
 #include <vector>
+#include <chrono>
+#include <iomanip>
 
 using std::shared_ptr;
 
 #ifndef TIMER
 #define TIMER
+
+#define SPACING 40
+#define PRECISION 8
 
 class Timer {
 
@@ -22,11 +27,12 @@ class Timer {
         void run();
         void runTimed();
         void recordResults(int runs);
+        void print(double real, double CPUTime);
     private:
 
         // const std::string& inFile;
-        
-        double timeLog;
+        double realTimeLog;
+        double CPUTimeLog;
         shared_ptr<Writer> thewriter;
         shared_ptr<Reader> thereader;
 };

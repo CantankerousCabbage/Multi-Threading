@@ -2,105 +2,104 @@
 #ifndef TIMER
 #define TIMER
 
+#include <iostream>
 #include <pthread.h>
 #include <cstdlib>
 #include <time.h>
 #include <memory>
 #include <vector>
+#include <chrono>
+#include <iomanip>
 
-
-    //    #include <errno.h>
-    //    #include <pthread.h>
-    //    #include <stdint.h>
-    //    #include <stdio.h>
-    //    #include <stdlib.h>
-    //    #include <string.h>
-    //    #include <time.h>
-    //    #include <unistd.h>
+#define SPACING 40
+#define PRECISION 8
 
 using std::shared_ptr;
-
-#define NANO 1000000000
-#define LOCKONE 1
-#define LOCKTWO 2
-#define LOCKTHREE 3
-#define CONDONE 4
-#define CONDTWO 5
-
-//timespec structure for reference
-// struct timespec {
-//         time_t   tv_sec;        /* seconds */
-//         long     tv_nsec;       /* nanoseconds */
-// };
+using std::chrono::system_clock;
+using std::chrono::high_resolution_clock;
 
 class Reader;
 class Writer;
 
-class TimeLog {
-    public:
-        TimeLog(pthread_t thread) : thread{thread} {
-            //Get the thread specific clock ID
-            if(!pthread_getcpuclockid(thread, &clockID)){
-                std::cout << "Failure to obtain thread clock ID\n"
-                "Abort program" << std::endl;
-                exit(-1);
-            }
+struct timeSum{
+    long double totalTime = 0;
+    double entries = 0;
+};
+
+class TimeLog{
+     public:
+        TimeLog(){
+            this->lockStart = high_resolution_clock::now();
+            this->waitStart = high_resolution_clock::now();
         };
         //Getclock stores clock data in timespec struc parameter for give clockID.
-        void startLockTimer(){clock_gettime(clockID, &tmpLockStart);}
-        void startWaitTimer(){clock_gettime(clockID, &tmpWaitStart);}
-
-        void endLockTimer(double lock){lock = getDiff(tmpLockStart);}
-        void endWaitTimer(double wait){wait = getDiff(tmpWaitStart);}
-
-        //Covert difference in two timespec struct's to seconds.
-        double getDiff(const struct timespec &start){
-            struct timespec end;
-            clock_gettime(clockID, &end);
-            return (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / NANO;
+        void startLockTimer(){
+            this->lockStart = high_resolution_clock::now();
         }
+
+        void startWaitTimer(){
+            didWait = true; 
+            this->waitStart = high_resolution_clock::now();
+        }
+
+        void endLockTimer(timeSum& lock){ 
+            lock.entries++; 
+            lock.totalTime += getDiff(lockStart);
+        }
+        void endWaitTimer(timeSum& wait){
+            if((didWait)) {
+                wait.entries++; wait.totalTime += getDiff(waitStart);
+                didWait = false;
+            }    
+        }
+
+        double getDiff(std::chrono::time_point<high_resolution_clock>& start){
+            std::chrono::duration<double> timeSeconds = (high_resolution_clock::now() - start);
+            return (double)timeSeconds.count(); 
+        }
+
         friend class Timer;
         friend class Reader;
         friend class Writer;
-        protected:
-        //Time to receive or wait for a lock
-            double lockOne;
-            double lockTwo;
-            double condOne;
-            double condTwo;
-        private:
-        //Variables for accessing specific thread CPU-timer
-            struct timespec tmpLockStart;
-            struct timespec tmpWaitStart;
-            pthread_t thread;
-            clockid_t clockID;
 
-            
+        protected:
+            bool didWait;
+            timeSum lockOne;
+            timeSum lockTwo;
+            timeSum condOne;
+            timeSum condTwo;
+        private:
+        
+           std::chrono::time_point<high_resolution_clock> lockStart;
+           std::chrono::time_point<high_resolution_clock> waitStart;          
 };
 
-
-
 class Timer {
-
-    
+ 
     public:
         Timer();
-        Timer( shared_ptr<int>  numRuns);
+        Timer(shared_ptr<int>  numRuns);
         ~Timer();
 
         static void init();
-        static void updateTime(TimeLog* readLog,  shared_ptr<Timer> timer);
-        // void Timer::updateWTime(WriteLog* writeLog, shared_ptr<Timer> timer);
+        static void cleanUp();
+        static pthread_mutex_t timeLock; 
+
+        void updateReadTime(TimeLog* readLog, shared_ptr<Timer> timer);
+        void updateWriteTime(TimeLog* writeLog, shared_ptr<Timer> timer);
         void start();
         void end();
         void reset();
-
-       static pthread_mutex_t timeLock; 
+        void printResults(shared_ptr<int> numthreads);
+        double getAverage(timeSum time);
+        
     private:
         std::vector<double> archive;
-        clock_t initial;
+        std::chrono::time_point<system_clock> initial;
+        clock_t initialCPU;
 
         double total;
+        double totalCPU;
         shared_ptr<int> numRuns;
 
         double writeLockOne;
@@ -111,11 +110,11 @@ class Timer {
         double writeCondOne;
         double writeCondTwo;
         double readCondOne;
-        double readCondTwo;
-        
+                
 };
 
 #include "Writer.h"
 #include "Reader.h"
 
 #endif
+

@@ -74,11 +74,13 @@ void* Writer::runner(void* arg) {
 }
 
 bool Writer::dequeue(){
-    
-    if(timer) tLog->startLockTimer(); 
-      
+    // std::cout << "Timer: 7" << std::endl;
+    if(timer) this->tLog->startLockTimer();  
     pthread_mutex_lock(&queueLock);
+    // std::cout << "Timer: 8" << std::endl;
+    if(timer) this->tLog->endLockTimer(tLog->lockOne);
 
+    // std::cout << "Timer: 9" << std::endl;
     if(timer) tLog->startWaitTimer();
     //While more items incoming read but queue empty wait
     while(!queuedComplete && (queue.size() == 0)){
@@ -86,6 +88,7 @@ bool Writer::dequeue(){
         pthread_cond_wait(&queueCond, &queueLock);
         Writer::dequeueWait--;
     } 
+    // std::cout << "Timer: 10" << std::endl;
     if(timer) tLog->endWaitTimer(tLog->condOne);
 
     //Safeguard agaisnt outstanding threads in queue on completion
@@ -102,29 +105,28 @@ bool Writer::dequeue(){
     }
 
     pthread_mutex_unlock(&queueLock);
-    if(timer) tLog->endLockTimer(tLog->lockOne);
 
     return true; 
 }
 
 void Writer::append(const std::string& line, Reader* reader) {
-    
+   
     if(timer)  reader->tLog->startLockTimer();
-
     pthread_mutex_lock(&queueLock);
+  
+    if(timer) reader->tLog->endLockTimer(reader->tLog->lockTwo);
 
+  
     if(timer) reader->tLog->startWaitTimer();
     //If buffer full reached or out of order then wait
     while(reader->getReadID() != Reader::queueCounter || queue.size() == BUFFER){
         pthread_cond_wait(&Reader::appendCond, &queueLock);        
     }  
+
     if(timer) reader->tLog->endWaitTimer(reader->tLog->condOne);
 
     if(reader->getReadID() == Reader::queueCounter) queue.push_back(line);
     
-    //Set queuedComplete when last read appened to queue
-    std::cout << "readComplete: " << Reader::readComplete << std::endl;
-    std::cout << Reader::readCounter << " vs " << Reader::queueCounter << std::endl;
     if(Reader::readComplete && Reader::readCounter == Reader::queueCounter){
         Writer::setFinished();
     } else {
@@ -139,37 +141,36 @@ void Writer::append(const std::string& line, Reader* reader) {
         pthread_cond_signal(&queueCond);
     }
     pthread_mutex_unlock(&queueLock); 
-
-    if(timer) reader->tLog->endLockTimer(reader->tLog->lockTwo);
        
 }
 
 void Writer::writeData(){
     
+    // std::cout << "Timer: 11" << std::endl;
     if(timer) this->tLog->startLockTimer();
-
-     pthread_mutex_lock(&writeLock);
+    pthread_mutex_lock(&writeLock);
+    // std::cout << "Timer: 12" << std::endl;
+    if(timer) this->tLog->endLockTimer(this->tLog->lockTwo);
     //Queue to manage writing in correct order
     
+   
     if(timer) this->tLog->startWaitTimer();
-
     while(!writeComplete && this->writeID != writeCount){
         Writer::writeWait++;
         pthread_cond_wait(&writeCond, &writeLock); 
         Writer::writeWait--;   
     }  
+    // std::cout << "Timer: 14" << std::endl;
     if(timer) this->tLog->endWaitTimer(this->tLog->condTwo); 
     
     if(!writeComplete){
         //Prepend newline after first write.
         if(this->writeID != FIRST) out << "\n";
         out << this->writeLine;
-        std::cout << "queuedComplete:" << queuedComplete << std::endl;
-        std::cout << "WriteCount" << this->writeID << std::endl;
-        std::cout << "readCount" << Reader::readCounter << std::endl;
+       
         //If all items remove from buffer set complete
         if(queuedComplete && writeCount == Reader::readCounter){
-            std::cout << "COMPLETE" << Writer::dequeueWait << std::endl;
+            
             writeComplete = true;
             pthread_cond_signal(&writeCond);
         } else {
@@ -179,11 +180,8 @@ void Writer::writeData(){
     } else {
          pthread_cond_signal(&writeCond);
     }
-    std::cout << "Wait D count" << Writer::dequeueWait << std::endl;
-    std::cout << "Wait W count" << Writer::writeWait << std::endl;    
-    pthread_mutex_unlock(&writeLock);
     
-    if(timer) this->tLog->endLockTimer(this->tLog->lockTwo);
+    pthread_mutex_unlock(&writeLock);
 }
 
 void Writer::cleanUp() {

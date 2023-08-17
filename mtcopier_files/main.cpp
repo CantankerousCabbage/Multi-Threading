@@ -8,6 +8,7 @@
 #include <memory>
 #include <iostream>
 #include <vector>
+#include <chrono>
 
 using std::string;
 using std::shared_ptr;
@@ -44,25 +45,14 @@ void  genObjects(T** objArray, int& length) {
 template<typename T>
 void  runObjects(T** objArray, int& length) {
     for(int i = 0; i < length; i++) {
-        std::cout << "Run ID:" << i << std::endl;
         objArray[i]->run();
-    }
-}
-
-template<typename T>
-void logTimes(T** objArray, int& length) {
-    for(int i = 0; i < length; i++) {
-        Timer::updateTime(objArray[i]->tLog);
-        
     }
 }
 
 template<typename T>
 void  joinThreads(T** objArray, int& length) {
     for(int i = 0; i < length; i++) {
-        std::cout << "Joining ID:" << i << std::endl;
         if(pthread_join(objArray[i]->getThread(), NULL)) {
-            std::cout << "Error: unable to join thread" << std::endl;
             exit(-1);
         }
     }
@@ -77,7 +67,7 @@ std::string& output, shared_ptr<bool> timed, shared_ptr<int> numRuns);
 int main(int argc, char** argv) {
     //Cleanup method
     atexit(cleanup);
-    
+
     std::string outFile;
     std::string inFile;
     shared_ptr<bool> timed = make_shared<bool>();
@@ -85,10 +75,9 @@ int main(int argc, char** argv) {
     shared_ptr<int> numRuns = make_shared<int>(DEFAULT);
     
     bool success = parseCommandLine(argc, argv, numThreads, inFile, outFile, timed,  numRuns);
-
     shared_ptr<Timer> timer = (*timed) ? make_shared<Timer>(numRuns) : nullptr;
-    int counter = 0;
 
+    int counter = 0;
     if(success) {
         while(counter != *numRuns){
             if(timer) timer->start();
@@ -96,30 +85,38 @@ int main(int argc, char** argv) {
             reader = new Reader*[*numThreads];
             writer = new Writer*[*numThreads];
             
-            genObjects<Reader>(reader, *numThreads);
-            genObjects<Writer>(writer, *numThreads);
-            
             Reader::init(inFile, timer);
             Writer::init(outFile, timer);
-            
+            Timer::init();
+
+            genObjects<Reader>(reader, *numThreads);
+            genObjects<Writer>(writer, *numThreads);
+             
             runObjects<Reader>(reader, *numThreads);
             runObjects<Writer>(writer, *numThreads);
-
-            if(timer){
-                logTimes(reader,  *numThreads);
-                logTimes(writer,  *numThreads);
-            }
             
             joinThreads<Reader>(reader, *numThreads);
             joinThreads<Writer>(writer, *numThreads);
 
-            Reader::cleanUp;
-            Writer::cleanUp;
-
             if(timer){
                 timer->end();
-                timer->reset();
+                for(int i = 0; i < *numThreads; i++) {
+                    timer->updateReadTime(reader[i]->tLog, timer);
+                }
+                for(int i = 0; i < *numThreads; i++) {
+                    timer->updateWriteTime(writer[i]->tLog, timer);
+                }
             }
+
+            Reader::cleanUp;
+            Writer::cleanUp;
+            Timer::cleanUp;
+
+            if(timer){
+                timer->printResults(numThreads);
+                timer->reset();   
+            }
+            counter++;
         }
     } else {
         cmdError();

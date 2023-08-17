@@ -7,6 +7,7 @@
 #include "Timer.h"
 #include <cstdlib>
 #include <memory>
+#include <chrono>
 
 using std::string;
 using std::shared_ptr;
@@ -41,7 +42,6 @@ int main(int argc, char** argv) {
         {
             if (*timed) { run->runTimed();
             } else run->run();
-            std::cout << "here" << std::endl;
             runs++;
         } 
         if(*numRuns > DEFAULT) run->recordResults(*numRuns);

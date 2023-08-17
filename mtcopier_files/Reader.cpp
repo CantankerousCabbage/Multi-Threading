@@ -21,6 +21,8 @@ string Reader::inFile;
 
 Reader::Reader(){}
 Reader::Reader(int ID) : threadID{ID} {
+    
+    // std::cout << ((Reader::timer) ? "Timer Made" : "Not MAde") << std::endl;
     this->tLog = (Reader::timer) ? new TimeLog() : nullptr;
 }
 Reader::~Reader(){
@@ -37,9 +39,9 @@ void Reader::init(const std::string& fileName, shared_ptr<Timer> timer) {
     Reader::readCounter = 0;
     Reader::queueCounter = 1;
 
-    Reader::appendLock;
-    Reader::readLock;
-    Reader::appendCond;
+    // Reader::appendLock;
+    // Reader::readLock;
+    // Reader::appendCond;
 
     pthread_mutex_init(&readLock, NULL);
     pthread_mutex_init(&appendLock, NULL);
@@ -68,9 +70,10 @@ void* Reader::runner(void* arg) {
 void Reader::getLine() {
     
     if(timer) this->tLog->startLockTimer();
-
+    // std::cout << "Timer: 1 Exit" << (this->tLog->lockOne) << std::endl;
     pthread_mutex_lock(&readLock); 
-
+    // std::cout << "Timer: 2" << std::endl;
+    if(timer) this->tLog->endLockTimer(this->tLog->lockOne); 
         
         if(!Reader::readComplete && std::getline(in, this->readLine)){  
             this->readID = ++Reader::readCounter; 
@@ -83,7 +86,7 @@ void Reader::getLine() {
         }
     pthread_mutex_unlock(&readLock);  
    
-   if(timer) tLog->endLockTimer(tLog->lockOne); 
+   
         
 }
 

@@ -1,4 +1,5 @@
 #include "Timer.h"
+#include <iomanip>
 
 // timer::timer(std::string& input, std::string& output, int& numthreads, reader* read, writer* write) 
 // : input{input}, output{output}, numThreads{numThreads}, read{read}, write{write} {}
@@ -14,12 +15,16 @@ void Timer::init(){
      pthread_mutex_init(&timeLock, NULL);
  }
 void Timer::start(){
-    this->initial = clock();
+    this->initial = system_clock::now();
+    this->initialCPU = clock();
 }
 
 void Timer::end() {
-    clock_t end = clock();
-    this->total = (double)(end - initial) / (double)CLOCKS_PER_SEC;
+    auto duration = [](clock_t start){return (double)(clock() - start) / (double)CLOCKS_PER_SEC;};
+
+    std::chrono::duration<double> timeSeconds = (system_clock::now() - initial);
+    this->total = timeSeconds.count();
+    this->totalCPU = duration(this->initialCPU);
 }
 
 void Timer::reset() {
@@ -27,55 +32,57 @@ void Timer::reset() {
         this->writeLockTwo = 0;
         this->readLockOne = 0;
         this->readLockTwo = 0;
-        
         this->writeCondOne = 0;
         this->writeCondTwo = 0;
-        this->readCondOne = 0;
-        this->readCondTwo = 0;      
+        this->readCondOne = 0;           
 }
-       
-    
-void Timer::updateTime(TimeLog* readLog, shared_ptr<Timer> timer){
-    pthread_mutex_lock(&timeLock);
-        timer->readLockOne += readLog->lockOne;
-        timer->readLockTwo += readLog->lockTwo;
-        timer->readCondOne += readLog->condOne;
-        timer->readCondTwo += readLog->condTwo;
-    pthread_mutex_unlock(&timeLock);
+
+void Timer::updateReadTime(TimeLog* readLog, shared_ptr<Timer> timer){
+    // auto getAvg = [](timeSum time){return time.totalTime / time.entries;}; 
+    pthread_mutex_lock(&Timer::timeLock);
+        timer->readLockOne = timer->readLockOne + readLog->lockOne.totalTime;
+        timer->readLockTwo = timer->readLockTwo + readLog->lockTwo.totalTime;
+        timer->readCondOne = timer->readCondOne + readLog->condOne.totalTime;  
+    pthread_mutex_unlock(&Timer::timeLock);
     
 }
 
-// void Timer::updateWTime(WriteLog* writeLog, shared_ptr<Timer> timer){
-//     pthread_mutex_lock(&timeLock);
-//         timer->readLockOne += writeLog->lockOne;
-//         timer->readLockTwo += writeLog->lockTwo;
-//         timer->readCondOne += writeLog->condOne;
-//         timer->readCondTwo += writeLog->condTwo;
-//     pthread_mutex_unlock(&timeLock);
+void Timer::updateWriteTime(TimeLog* writeLog, shared_ptr<Timer> timer){
+    // auto getAvg = [](timeSum time){return ((time.entries == 0) ? 0 : time.totalTime / time.entries);}; 
     
-// }
+    pthread_mutex_lock(&Timer::timeLock);
+        timer->writeLockOne = timer->writeLockOne + writeLog->lockOne.totalTime;
+        timer->writeLockTwo = timer->writeLockTwo + writeLog->lockTwo.totalTime;
+        timer->writeCondOne = timer->writeCondOne + writeLog->condOne.totalTime;
+        timer->writeCondTwo = timer->writeCondTwo + writeLog->condTwo.totalTime;
+    pthread_mutex_unlock(&Timer::timeLock);   
+}
 
-// class TimeLog{
-//     public:
-//         clock_t  lockOne;
-//         clock_t  lockTwo;
-//         clock_t  lockThree;
-//         clock_t  condOne;
-//         clock_t  condTwo;
-// };
+double Timer::getAverage(timeSum time){
+    return time.totalTime / time.entries;
+}
 
-// void Timer::updateTime(int item, clock_t time){
-//     double timeSec = (double)time / (double)CLOCKS_PER_SEC; 
-//     if(item == LOCKONE){
-//         this->lockOne += timeSec;
-//     } else if(item == LOCKTWO) {
-//         this->lockTwo += timeSec;
-//     } else if(item == LOCKTHREE) {
-//         this->lockThree += timeSec;
-//     } else if(item == CONDONE) {
-//         this->condOne += timeSec;
-//     } else if(item == CONDTWO) {
-//         this->condTwo += timeSec;
-//     }
-// }
+void Timer::printResults(shared_ptr<int> numthreads){
+    //Format lambda 
+    auto lineFormat = [](std::string s, double v){std::cout << s << std::fixed 
+    << std::setprecision(PRECISION) << std::setw(SPACING - s.length()) << v <<"\n";};
+
+    std::cout << "Results" << "\n-------\n";
+    std::cout << "#" << ((*numthreads)*2) << " threads\n";
+    lineFormat("Blocked Read Lock: ", this->readLockOne);
+    lineFormat("Blocked Append Lock: ", this->readLockTwo);
+    lineFormat("Blocked Pop Lock: ", this->writeLockOne);
+    lineFormat("Blocked Write Lock: ", this->writeLockTwo);
+    lineFormat("Waiting Append: ", this->readCondOne);
+    lineFormat("Waiting Pop: ", this->writeCondOne);
+    lineFormat("Waiting Write: " , this->writeCondTwo);
+    std::cout << "\n";
+    lineFormat("Total Real Time: ", this->total);
+    lineFormat("Total CPU Time: ", this->totalCPU);
+}
+
+void Timer::cleanUp(){
+    pthread_mutex_destroy(&Timer::timeLock);
+}
+
 
