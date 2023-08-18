@@ -13,8 +13,10 @@
 
 #define SPACING 40
 #define PRECISION 8
+#define OUTPUT "resultsMT.txt"
 
 using std::shared_ptr;
+using std::unique_ptr;
 using std::chrono::system_clock;
 using std::chrono::high_resolution_clock;
 
@@ -24,6 +26,20 @@ class Writer;
 struct timeSum{
     long double totalTime = 0;
     double entries = 0;
+};
+
+struct archiveEntry{
+    double writeLockOne = 0;
+    double writeLockTwo = 0;
+    double readLockOne = 0;
+    double readLockTwo = 0;
+    
+    double writeCondOne = 0;
+    double writeCondTwo = 0;
+    double readCondOne = 0;
+
+    double total = 0;
+    double totalCPU = 0;
 };
 
 class TimeLog{
@@ -91,10 +107,13 @@ class Timer {
         void end();
         void reset();
         void printResults(shared_ptr<int> numthreads);
+        void printAggregate(shared_ptr<int> numthreads, archiveEntry* totals);
+        void archiveRun();
+        void outputResults(shared_ptr<int> numThreads);
         double getAverage(timeSum time);
         
     private:
-        std::vector<double> archive;
+        unique_ptr<std::vector<unique_ptr<archiveEntry>>> archive;
         std::chrono::time_point<system_clock> initial;
         clock_t initialCPU;
 

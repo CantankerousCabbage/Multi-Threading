@@ -13,6 +13,7 @@ int Writer::lineCount;
 int Writer::writeCount;
 bool Writer::queuedComplete;
 bool Writer::writeComplete;
+string Writer::outName;
 
 int Writer::dequeueWait;
 int Writer::writeWait;
@@ -38,6 +39,7 @@ Writer::~Writer(){
 void Writer::init(const std::string& name, shared_ptr<Timer> timer) {
     
     Writer::timer = timer;
+    Writer::outName = name;
     out.open(name);
 
     Writer::queuedComplete = false;
@@ -69,18 +71,15 @@ void* Writer::runner(void* arg) {
         writer->dequeue();
         writer->writeData();
     } 
-    
     return NULL;
 }
 
 bool Writer::dequeue(){
-    // std::cout << "Timer: 7" << std::endl;
+    
     if(timer) this->tLog->startLockTimer();  
     pthread_mutex_lock(&queueLock);
-    // std::cout << "Timer: 8" << std::endl;
     if(timer) this->tLog->endLockTimer(tLog->lockOne);
 
-    // std::cout << "Timer: 9" << std::endl;
     if(timer) tLog->startWaitTimer();
     //While more items incoming read but queue empty wait
     while(!queuedComplete && (queue.size() == 0)){
@@ -88,7 +87,6 @@ bool Writer::dequeue(){
         pthread_cond_wait(&queueCond, &queueLock);
         Writer::dequeueWait--;
     } 
-    // std::cout << "Timer: 10" << std::endl;
     if(timer) tLog->endWaitTimer(tLog->condOne);
 
     //Safeguard agaisnt outstanding threads in queue on completion
@@ -97,6 +95,7 @@ bool Writer::dequeue(){
         this->writeID = ++lineCount;
         queue.pop_front();
     }
+
     //If reading finished empty queue else alternate between push/pop
     if(queuedComplete){
         pthread_cond_signal(&queueCond);   
@@ -105,7 +104,6 @@ bool Writer::dequeue(){
     }
 
     pthread_mutex_unlock(&queueLock);
-
     return true; 
 }
 
@@ -113,7 +111,6 @@ void Writer::append(const std::string& line, Reader* reader) {
    
     if(timer)  reader->tLog->startLockTimer();
     pthread_mutex_lock(&queueLock);
-  
     if(timer) reader->tLog->endLockTimer(reader->tLog->lockTwo);
 
   
@@ -146,21 +143,18 @@ void Writer::append(const std::string& line, Reader* reader) {
 
 void Writer::writeData(){
     
-    // std::cout << "Timer: 11" << std::endl;
+    
     if(timer) this->tLog->startLockTimer();
     pthread_mutex_lock(&writeLock);
-    // std::cout << "Timer: 12" << std::endl;
     if(timer) this->tLog->endLockTimer(this->tLog->lockTwo);
+
     //Queue to manage writing in correct order
-    
-   
     if(timer) this->tLog->startWaitTimer();
     while(!writeComplete && this->writeID != writeCount){
         Writer::writeWait++;
         pthread_cond_wait(&writeCond, &writeLock); 
         Writer::writeWait--;   
     }  
-    // std::cout << "Timer: 14" << std::endl;
     if(timer) this->tLog->endWaitTimer(this->tLog->condTwo); 
     
     if(!writeComplete){
@@ -170,7 +164,7 @@ void Writer::writeData(){
        
         //If all items remove from buffer set complete
         if(queuedComplete && writeCount == Reader::readCounter){
-            
+            out.close();
             writeComplete = true;
             pthread_cond_signal(&writeCond);
         } else {
@@ -191,11 +185,30 @@ void Writer::cleanUp() {
     pthread_cond_destroy(&writeCond);
 }
 
+void Writer::reset(){
+    out.open(outName);
+
+    Writer::queuedComplete = false;
+    Writer::writeComplete = false;
+
+    Writer::lineCount = INITIAL;
+    Writer::writeCount = 1;
+    Writer::dequeueWait = INITIAL;
+    Writer::writeWait = INITIAL;
+}
+
+void Writer::resetInstance() {
+    this->writeLine = "";
+    this->writeID = 0;
+    delete this->tLog;
+    this->tLog = new TimeLog();
+}
+
 void Writer::setFinished() {
     queuedComplete = true;
 }
 
-pthread_t Writer::getThread(){
+pthread_t Writer::getThread() {
     return writeThread;
 }
 

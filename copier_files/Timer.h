@@ -9,12 +9,16 @@
 #include <iomanip>
 
 using std::shared_ptr;
+using std::unique_ptr;
 
 #ifndef TIMER
 #define TIMER
 
 #define SPACING 40
 #define PRECISION 8
+#define REAL 0
+#define CPU 1
+
 
 class Timer {
 
@@ -26,15 +30,20 @@ class Timer {
 
         void run();
         void runTimed();
-        void recordResults(int runs);
-        void print(double real, double CPUTime);
+        void recordResults();
+        void print(int numRuns=0);
+        
     private:
 
         // const std::string& inFile;
         double realTimeLog;
         double CPUTimeLog;
+
+        double realTime;
+        double CPUTime;
         shared_ptr<Writer> thewriter;
         shared_ptr<Reader> thereader;
+        unique_ptr<std::vector<double>> archive;
 };
 
 #endif

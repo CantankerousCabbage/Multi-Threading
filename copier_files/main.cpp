@@ -43,8 +43,11 @@ int main(int argc, char** argv) {
             if (*timed) { run->runTimed();
             } else run->run();
             runs++;
+            if(*numRuns > DEFAULT) run->recordResults(); 
         } 
-        if(*numRuns > DEFAULT) run->recordResults(*numRuns);
+        if(*numRuns > DEFAULT) run->print(*numRuns); 
+         
+    
     } else {
         cmdError();
     }

@@ -28,7 +28,7 @@ class Reader {
     /*
      * Initialises shared data for class.
      */
-    static void init(const std::string& name, shared_ptr<Timer> timer);
+    static void init(const std::string& name, shared_ptr<Timer> timer, shared_ptr<bool> fileTest);
 
     /*
      * Handles thread loop, write to buffer append
@@ -61,6 +61,11 @@ class Reader {
     static void cleanUp();
 
     /**
+     * Reset for multiple runs
+     **/
+    static void reset();
+
+    /**
      * Returns thread to. Used to invoke join in main.
      **/
     pthread_t getThread();
@@ -76,9 +81,13 @@ class Reader {
     int getReadID();
 
     /**
-     * Returns time log
+     * Resets data in reader object for another run
      **/
-    int gettLog();
+    void resetInstance();
+
+    
+
+    
 
     friend class Writer;
 

@@ -29,19 +29,16 @@ Reader::~Reader(){
     delete tLog;
 }
 
-void Reader::init(const std::string& fileName, shared_ptr<Timer> timer) {
+void Reader::init(const std::string& fileName, shared_ptr<Timer> timer, shared_ptr<bool> fileTest) {
     
     Reader::timer = timer;
     Reader::inFile = fileName;
     Reader::in.open(inFile);
+    *fileTest = in.good();
 
     Reader::readComplete = false;
     Reader::readCounter = 0;
     Reader::queueCounter = 1;
-
-    // Reader::appendLock;
-    // Reader::readLock;
-    // Reader::appendCond;
 
     pthread_mutex_init(&readLock, NULL);
     pthread_mutex_init(&appendLock, NULL);
@@ -96,6 +93,7 @@ void Reader::queueLine() {
 }
 
 void Reader::readFinished() {
+    in.close();
     Reader::readComplete = true;
 }
 
@@ -104,6 +102,20 @@ void Reader::cleanUp(){
     pthread_mutex_destroy(&appendLock);
     pthread_mutex_destroy(&readLock);
     pthread_cond_destroy(&appendCond);
+}
+
+void Reader::reset(){
+    Reader::in.open(inFile);
+    Reader::readComplete = false;
+    Reader::readCounter = 0;
+    Reader::queueCounter = 1;
+}
+
+void Reader::resetInstance(){
+    this->readLine = "";
+    this->readID = 0;
+    delete this->tLog;
+    this->tLog = new TimeLog();
 }
 
 pthread_t Reader::getThread(){

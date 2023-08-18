@@ -33,6 +33,7 @@ int cmdError();
 * Generic functions to accomodate reader and writer objects as follows: 
 * 1. Generating thread data objects
 * 2. Creating threads
+* 3. Reset reader/writer instance for multi recorded runs
 * 3. Joining threads.
 */
 template<typename T>
@@ -46,6 +47,13 @@ template<typename T>
 void  runObjects(T** objArray, int& length) {
     for(int i = 0; i < length; i++) {
         objArray[i]->run();
+    }
+}
+
+template<typename T>
+void  resetObjects(T** objArray, int& length) {
+    for(int i = 0; i < length; i++) {
+        objArray[i]->resetInstance();
     }
 }
 
@@ -78,50 +86,63 @@ int main(int argc, char** argv) {
     shared_ptr<Timer> timer = (*timed) ? make_shared<Timer>(numRuns) : nullptr;
 
     int counter = 0;
-    if(success) {
-        while(counter != *numRuns){
-            if(timer) timer->start();
-            
+    if(success) {  
+            shared_ptr<bool> fileTest = make_shared<bool>(false);
             reader = new Reader*[*numThreads];
             writer = new Writer*[*numThreads];
             
-            Reader::init(inFile, timer);
+            Reader::init(inFile, timer, fileTest);
             Writer::init(outFile, timer);
             Timer::init();
 
             genObjects<Reader>(reader, *numThreads);
             genObjects<Writer>(writer, *numThreads);
-             
-            runObjects<Reader>(reader, *numThreads);
-            runObjects<Writer>(writer, *numThreads);
-            
-            joinThreads<Reader>(reader, *numThreads);
-            joinThreads<Writer>(writer, *numThreads);
 
-            if(timer){
-                timer->end();
-                for(int i = 0; i < *numThreads; i++) {
-                    timer->updateReadTime(reader[i]->tLog, timer);
+            while(*fileTest && counter != *numRuns){
+                if(timer) timer->start();
+             
+                runObjects<Reader>(reader, *numThreads);
+                runObjects<Writer>(writer, *numThreads);
+                
+                joinThreads<Reader>(reader, *numThreads);
+                joinThreads<Writer>(writer, *numThreads);
+
+                if(timer){
+                    timer->end();
+                    for(int i = 0; i < *numThreads; i++) {
+                        timer->updateReadTime(reader[i]->tLog, timer);
+                    }
+                    for(int i = 0; i < *numThreads; i++) {
+                        timer->updateWriteTime(writer[i]->tLog, timer);
+                    }
                 }
-                for(int i = 0; i < *numThreads; i++) {
-                    timer->updateWriteTime(writer[i]->tLog, timer);
+
+                if(timer){
+                    if (*numRuns > DEFAULT) timer->archiveRun();
+                    timer->printResults(numThreads);
+                } 
+                          
+                counter++;
+
+                if(counter != *numRuns && *numRuns > DEFAULT){
+                    
+                    timer->reset();
+                    Reader::reset();
+                    Writer::reset();
+                    resetObjects<Reader>(reader, *numThreads);
+                    resetObjects<Writer>(writer, *numThreads);
+                } else if (*numRuns > DEFAULT && counter == *numRuns){
+                    timer->outputResults(numThreads);
                 }
             }
-
             Reader::cleanUp;
             Writer::cleanUp;
             Timer::cleanUp;
 
-            if(timer){
-                timer->printResults(numThreads);
-                timer->reset();   
-            }
-            counter++;
-        }
+            if(!*fileTest) cmdError();
     } else {
         cmdError();
-    }
-        
+    }     
     return EXIT_SUCCESS;
 }
 
@@ -181,3 +202,4 @@ int cmdError() {
 
     return 0;
 }
+

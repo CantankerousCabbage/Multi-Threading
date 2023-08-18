@@ -4,8 +4,7 @@
 using std::chrono::system_clock;
 
 Timer::Timer(shared_ptr<Writer> thewriter, shared_ptr<Reader> thereader) : thewriter{thewriter}, thereader{thereader}{
-    // CPUTimeLog = 0;
-    // realTimeLog = 0;
+    archive = std::make_unique<std::vector<double>>();
 }
 
 void Timer::run() {
@@ -24,28 +23,32 @@ void Timer::runTimed() {
 
     //Calculate real time using
     std::chrono::duration<double> timeSeconds = (endR - startR);
-    double realTime = timeSeconds.count();
-
-    //Calculate CPU time
-    double CPUTime = duration(start, end);
-    CPUTimeLog += realTime;
-
-    this->print(realTime, CPUTime);
+    this->realTime = timeSeconds.count();
+    this->CPUTime = duration(start, end);
+    
+    this->print();
 
 }
 
-void Timer::print(double real, double CPUTime){
+void Timer::print(int numRuns){
     auto lineFormat = [](std::string s, double v){std::cout << s << std::fixed 
     << std::setprecision(PRECISION) << std::setw(SPACING - s.length()) << v <<"\n";};
-
-    std::cout << "Results" << "\n-------\n";
-    lineFormat("Total Real Time: ", real);
-    lineFormat("Total CPU Time: ", CPUTime);
-
+    if(!numRuns){
+        std::cout << "Results" << "\n-------\n";
+        lineFormat("Total Real Time: ", realTime);
+        lineFormat("Total CPU Time: ", CPUTime);
+        std::cout << std::endl;
+    } else {
+        std::cout << "Aggregate Results" << "\n-------------\n"
+        << "#" << numRuns << "total runs\n";
+        lineFormat("Total Real Time: ", (realTime / (double)numRuns));
+        lineFormat("Total CPU Time: ", (CPUTime / (double)numRuns)); 
+        std::cout << std::endl;
+    }
+   
 }
-void Timer::recordResults(int numRuns) {
-    auto avgTime = [this](int x){return CPUTimeLog /(double)x;};
-    std::cout << "Number Runs: " << numRuns << "\n"
-    "Average Copy time: " << avgTime(numRuns) << "\n"
-    << std::endl;
+
+void Timer::recordResults() {
+    CPUTimeLog += CPUTime;
+    realTimeLog += realTime;
 }

@@ -29,8 +29,12 @@ class Writer {
         static void init(const std::string& name, shared_ptr<Timer> timer);
         static void* runner(void*);
         static void cleanUp();
-        
 
+        /**
+         * Resets writer for multiple runs
+         **/
+        static void reset();
+        
         /*
         * Thread safe append. Waits on conditional if dequeue holds lock.
         */
@@ -62,11 +66,13 @@ class Writer {
         int getID();
 
         /**
-         * Returns time log
+         * Resets writer for multiple runs
          **/
-        int gettLog();
+        void resetInstance();
 
-
+        /**
+         * Upates writer that all lines have transitioned from input to buffer.
+         **/
         static void setFinished();
 
         static int lineCount;
@@ -86,6 +92,7 @@ class Writer {
         static pthread_cond_t writeCond;
 
         static shared_ptr<Timer> timer;
+        static string outName;
         static std::ofstream out;
         static std::deque<std::string> queue;
         TimeLog* tLog;
