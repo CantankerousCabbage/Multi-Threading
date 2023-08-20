@@ -25,6 +25,7 @@ using std::vector;
 //Thread data object arrays.
 Reader** reader;
 Writer** writer;  
+shared_ptr<int> numThreads;
 
 void cleanup();
 int cmdError();
@@ -39,7 +40,7 @@ int cmdError();
 template<typename T>
 void  genObjects(T** objArray, int& length) {
     for(int i = 0; i < length; i++) {
-        objArray[i] = new T(i);
+        objArray[i] = new T();
     }
 }
 
@@ -79,12 +80,12 @@ int main(int argc, char** argv) {
     std::string outFile;
     std::string inFile;
     shared_ptr<bool> timed = make_shared<bool>();
-    shared_ptr<int> numThreads = make_shared<int>();
+    numThreads = make_shared<int>();
     shared_ptr<int> numRuns = make_shared<int>(DEFAULT);
     
     bool success = parseCommandLine(argc, argv, numThreads, inFile, outFile, timed,  numRuns);
-    std::cout << success << std::endl;
-    shared_ptr<Timer> timer = (*timed) ? make_shared<Timer>(numRuns) : nullptr;
+    
+    shared_ptr<Timer> timer = make_shared<Timer>(numRuns);
 
     int counter = 0;
     if(success) {  
@@ -98,19 +99,22 @@ int main(int argc, char** argv) {
             
             genObjects<Reader>(reader, *numThreads);
             genObjects<Writer>(writer, *numThreads);
-
+            
             while(success && counter != *numRuns){
-                if(timer) timer->start();
-                //  std::cout << "OBJECTS GENERATED" << std::endl;
+                timer->start();
+                 
                 runObjects<Reader>(reader, *numThreads);
                 runObjects<Writer>(writer, *numThreads);
-                // std::cout << "RUN COMPLETE" << std::endl;
+                 
                 joinThreads<Reader>(reader, *numThreads);
-                // std::cout << "READERS JOINED" << std::endl;
+                // std::cout << "Reader Joined" << std::endl;
                 joinThreads<Writer>(writer, *numThreads);
-                // std::cout << "WRITERS JOINED" << std::endl;
+                // std::cout << "Writer Joined" << std::endl;
 
-                if(timer){
+                Reader::close();
+                Writer::close();
+
+                if(*timed){
                     timer->end();
                     for(int i = 0; i < *numThreads; i++) {
                         timer->updateReadTime(reader[i]->tLog, timer);
@@ -120,32 +124,32 @@ int main(int argc, char** argv) {
                     }
                 }
 
-                if(timer){
-                    if (*numRuns > DEFAULT) timer->archiveRun();
-                    timer->printResults(numThreads);
-                } 
-                          
-                counter++;
+                if(*timed){
+                        timer->printResults(numThreads);
+                        if(*numRuns > DEFAULT) timer->archiveRun();
+                    counter++;   
+                    if(counter != *numRuns && *numRuns > DEFAULT){
+                        
+                        
+                        timer->reset();
+                        success = Reader::reset() && Writer::reset();
+                        resetObjects<Reader>(reader, *numThreads);
+                        resetObjects<Writer>(writer, *numThreads);
 
-                if(counter != *numRuns && *numRuns > DEFAULT){
-                    
-                    timer->reset();
-                    success = Reader::reset() && Writer::reset();
-                    
-                    resetObjects<Reader>(reader, *numThreads);
-                    resetObjects<Writer>(writer, *numThreads);
-                } else if (*numRuns > DEFAULT && counter == *numRuns){
-                    timer->outputResults(numThreads);
-                }
+                    } else if (*numRuns > DEFAULT && counter == *numRuns){
+                        timer->outputResults(numThreads);
+                    }
+                }          
+                // counter++;    
             }
             Reader::cleanUp;
             Writer::cleanUp;
             Timer::cleanUp;
-
+            
             if(!success) cmdError();
     } else {
         cmdError();
-    }     
+    }   
     return EXIT_SUCCESS;
 }
 
@@ -186,9 +190,17 @@ string& output, shared_ptr<bool> timed,  shared_ptr<int> numRuns) {
 * Cleanup up dynamic memory
 */
 void cleanup() {
+    for(int i = 0; i < *numThreads; i++){
+        delete reader[i];
+    }
+    for(int i = 0; i < *numThreads; i++){
+        delete writer[i];
+    }
     delete[] reader;
     delete[] writer;
 }
+
+
 
 /*
 * Error Message

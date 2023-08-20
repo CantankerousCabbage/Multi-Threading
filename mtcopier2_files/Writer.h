@@ -19,12 +19,12 @@
 
 using std::string;
 using std::shared_ptr;
+using std::make_shared;
 
 class Writer {
     public:
 
         Writer();
-        Writer(int ID);
         ~Writer();
         static bool init(const std::string& name, shared_ptr<Timer> timer);
         static void* runner(void*);
@@ -45,10 +45,12 @@ class Writer {
         */
         void run();
 
+        void execute();
+
         /*
         * Thread safe deque. Waits on conditional if queue empty of if append holds lock.
         */
-        bool dequeue();
+        void dequeue();
 
         /*
         * Write data to output file
@@ -75,33 +77,34 @@ class Writer {
          **/
         static void setFinished();
 
-        static int lineCount;
-        static int writeCount;
+        /**
+         * close output file
+         **/
+        static void close();
 
         static int dequeueWait;
-        static int writeWait;
+        static int pushWait;
         
         // static int* finalCount;
-        static bool queuedComplete;
-        static bool writeComplete;
+        static bool empty;
+        static bool finished;
+        static bool first;
 
         static pthread_mutex_t queueLock;
         static pthread_mutex_t writeLock;
 
-        static pthread_cond_t queueCond;
+        static pthread_cond_t popCond;
         static pthread_cond_t writeCond;
 
         static shared_ptr<Timer> timer;
         static string outName;
         static std::ofstream out;
         static std::deque<std::string> queue;
-        TimeLog* tLog;
+        shared_ptr<TimeLog> tLog;
 
     private:
         pthread_t writeThread;
         string writeLine;
-        int writeID;
-        int threadID;
         
 };
 #endif

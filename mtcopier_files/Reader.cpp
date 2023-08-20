@@ -29,20 +29,25 @@ Reader::~Reader(){
     delete tLog;
 }
 
-void Reader::init(const std::string& fileName, shared_ptr<Timer> timer, shared_ptr<bool> fileTest) {
+bool Reader::init(const std::string& fileName, shared_ptr<Timer> timer, shared_ptr<bool> fileTest) {
     
-    Reader::timer = timer;
     Reader::inFile = fileName;
     Reader::in.open(inFile);
-    *fileTest = in.good();
+    
+    bool fileCheck = in.good();
+    
+    if(fileCheck) {
+        Reader::timer = timer;
 
-    Reader::readComplete = false;
-    Reader::readCounter = 0;
-    Reader::queueCounter = 1;
+        Reader::readComplete = false;
+        Reader::readCounter = 0;
+        Reader::queueCounter = 1;
 
-    pthread_mutex_init(&readLock, NULL);
-    pthread_mutex_init(&appendLock, NULL);
-    pthread_cond_init(&appendCond, NULL);   
+        pthread_mutex_init(&readLock, NULL);
+        pthread_mutex_init(&appendLock, NULL);
+        pthread_cond_init(&appendCond, NULL); 
+    }
+    return fileCheck;
 }
 
 void Reader::run() {
@@ -104,11 +109,15 @@ void Reader::cleanUp(){
     pthread_cond_destroy(&appendCond);
 }
 
-void Reader::reset(){
+bool Reader::reset(){
     Reader::in.open(inFile);
-    Reader::readComplete = false;
-    Reader::readCounter = 0;
-    Reader::queueCounter = 1;
+    bool fileCheck = in.good();
+    if (fileCheck) {
+        Reader::readComplete = false;
+        Reader::readCounter = 0;
+        Reader::queueCounter = 1;    
+    }
+    return fileCheck;
 }
 
 void Reader::resetInstance(){

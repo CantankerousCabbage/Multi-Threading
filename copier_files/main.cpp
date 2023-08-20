@@ -32,18 +32,31 @@ int main(int argc, char** argv) {
 
     bool success = parseCommandLine(argc, argv, timed, numRuns);
 
+    std::string input = string(argv[1]);
+    std::string output = string(argv[2]);
+
+    shared_ptr<Writer> theWriter = make_shared<Writer>(output);
+    shared_ptr<Reader> theReader = make_shared<Reader>(input, theWriter); 
+
+    
+
     if(success){
-        shared_ptr<Writer> theWriter = make_shared<Writer>(string(argv[2]));
-        shared_ptr<Reader> theReader = make_shared<Reader>(string(argv[1]), theWriter); 
+        
         unique_ptr<Timer> run = make_unique<Timer>(theWriter, theReader);
         int runs = 0;
 
-        while(runs != *numRuns)
-        {
-            if (*timed) { run->runTimed();
-            } else run->run();
-            runs++;
-            if(*numRuns > DEFAULT) run->recordResults(); 
+        while(success && runs != *numRuns) {
+            success = theReader->init() && theWriter->init();
+            if (success){
+                if (*timed) { 
+                run->runTimed();
+                } else {
+                    run->run();  
+                } 
+                runs++;
+
+                if(*numRuns > DEFAULT) run->recordResults(); 
+            }  
         } 
         if(*numRuns > DEFAULT) run->print(*numRuns); 
          
@@ -80,6 +93,8 @@ bool parseCommandLine(int argc, char** argv, shared_ptr<bool> timed, shared_ptr<
     
     return valid;
 }
+
+
 
 int cmdError() {
     std::cout << 

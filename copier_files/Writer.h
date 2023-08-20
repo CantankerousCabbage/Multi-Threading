@@ -23,6 +23,12 @@ class Writer {
      * does the actual writing
      **/
     void run();
+
+    /**
+     * Validate outout file
+     **/
+    bool init();
+
     /**
      * appends a line from the file read in to be output ... needed by the
      * reader class

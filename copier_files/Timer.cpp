@@ -5,7 +5,9 @@ using std::chrono::system_clock;
 
 Timer::Timer(shared_ptr<Writer> thewriter, shared_ptr<Reader> thereader) : thewriter{thewriter}, thereader{thereader}{
     archive = std::make_unique<std::vector<double>>();
+
 }
+
 
 void Timer::run() {
 
@@ -41,8 +43,8 @@ void Timer::print(int numRuns){
     } else {
         std::cout << "Aggregate Results" << "\n-------------\n"
         << "#" << numRuns << "total runs\n";
-        lineFormat("Total Real Time: ", (realTime / (double)numRuns));
-        lineFormat("Total CPU Time: ", (CPUTime / (double)numRuns)); 
+        lineFormat("Total Real Time: ", (realTimeLog / (double)numRuns));
+        lineFormat("Total CPU Time: ", (CPUTimeLog / (double)numRuns)); 
         std::cout << std::endl;
     }
    

@@ -21,7 +21,9 @@ class Reader {
     Reader(const std::string& name, shared_ptr<Writer> mywriter);
     /* perform the reading from the file */
     void run();
-
+     /* Validate read file */
+    bool init();
+    
    private:
     std::ifstream in;
     const std::string& name;

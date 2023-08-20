@@ -9,7 +9,7 @@
  * provide your implementation for the writer functions here
  **/
 Writer::Writer(const std::string& name) : name{name} {
-    out.open(name);
+    // out.open(name);
     first = true;
 }
 
@@ -19,6 +19,11 @@ void Writer::run() {
         queue.pop_front(); 
         if(first) first = !first;
 
+}
+
+bool Writer::init() {
+    out.open(name);
+    return out.good();
 }
 
 

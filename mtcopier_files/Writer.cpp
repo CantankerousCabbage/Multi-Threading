@@ -36,24 +36,27 @@ Writer::~Writer(){
     delete tLog;
 }
 
-void Writer::init(const std::string& name, shared_ptr<Timer> timer) {
+bool Writer::init(const std::string& name, shared_ptr<Timer> timer) {
     
     Writer::timer = timer;
     Writer::outName = name;
     out.open(name);
+    bool fileCheck = out.good();
+    if (fileCheck) {
+        Writer::queuedComplete = false;
+        Writer::writeComplete = false;
 
-    Writer::queuedComplete = false;
-    Writer::writeComplete = false;
+        Writer::lineCount = INITIAL;
+        Writer::writeCount = 1;
+        Writer::dequeueWait = INITIAL;
+        Writer::writeWait = INITIAL;
 
-    Writer::lineCount = INITIAL;
-    Writer::writeCount = 1;
-    Writer::dequeueWait = INITIAL;
-    Writer::writeWait = INITIAL;
-
-    pthread_mutex_init(&queueLock, NULL);
-    pthread_mutex_init(&writeLock, NULL);
-    pthread_cond_init(&queueCond, NULL);
-    pthread_cond_init(&writeCond, NULL);  
+        pthread_mutex_init(&queueLock, NULL);
+        pthread_mutex_init(&writeLock, NULL);
+        pthread_cond_init(&queueCond, NULL);
+        pthread_cond_init(&writeCond, NULL);  
+    }
+    return fileCheck;
 }
 
 void Writer::run() {
@@ -94,13 +97,19 @@ bool Writer::dequeue(){
         this->writeLine = queue.front();
         this->writeID = ++lineCount;
         queue.pop_front();
+        // std::cout << "Push: " << queue.size() << std::endl;
     }
 
     //If reading finished empty queue else alternate between push/pop
     if(queuedComplete){
         pthread_cond_signal(&queueCond);   
     } else {
-        pthread_cond_broadcast(&Reader::appendCond);    
+        if((queue.size() == 0 )){
+            pthread_cond_broadcast(&Reader::appendCond); 
+        } else {
+            pthread_cond_signal(&queueCond); 
+        }
+           
     }
 
     pthread_mutex_unlock(&queueLock);
@@ -125,7 +134,7 @@ void Writer::append(const std::string& line, Reader* reader) {
     if(reader->getReadID() == Reader::queueCounter) queue.push_back(line);
     
     if(Reader::readComplete && Reader::readCounter == Reader::queueCounter){
-        Writer::setFinished();
+        Writer::setFinished(); //queueComplete  TRUE
     } else {
         Reader::queueCounter++;
     }
@@ -165,6 +174,7 @@ void Writer::writeData(){
         //If all items remove from buffer set complete
         if(queuedComplete && writeCount == Reader::readCounter){
             out.close();
+            // std::cout << "WRITE COMPLETE" << std::endl;
             writeComplete = true;
             pthread_cond_signal(&writeCond);
         } else {
@@ -174,7 +184,7 @@ void Writer::writeData(){
     } else {
          pthread_cond_signal(&writeCond);
     }
-    
+    // std::cout << "D-W: " << dequeueWait << " W-W: " << writeWait << std::endl;
     pthread_mutex_unlock(&writeLock);
 }
 
@@ -185,16 +195,18 @@ void Writer::cleanUp() {
     pthread_cond_destroy(&writeCond);
 }
 
-void Writer::reset(){
+bool Writer::reset(){
     out.open(outName);
-
-    Writer::queuedComplete = false;
-    Writer::writeComplete = false;
-
-    Writer::lineCount = INITIAL;
-    Writer::writeCount = 1;
-    Writer::dequeueWait = INITIAL;
-    Writer::writeWait = INITIAL;
+    bool fileCheck = out.good();
+    if(fileCheck) {
+        Writer::queuedComplete = false;
+        Writer::writeComplete = false;
+        Writer::lineCount = INITIAL;
+        Writer::writeCount = 1;
+        Writer::dequeueWait = INITIAL;
+        Writer::writeWait = INITIAL;
+    }
+   return fileCheck;
 }
 
 void Writer::resetInstance() {
@@ -205,6 +217,7 @@ void Writer::resetInstance() {
 }
 
 void Writer::setFinished() {
+    // std::cout << "D-W: " << dequeueWait << " W-W: " << writeWait << std::endl;
     queuedComplete = true;
 }
 
