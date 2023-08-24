@@ -4,7 +4,7 @@ Github: https://github.com/CantankerousCabbage/Multi-Threading
 Student: Joseph Warren
 Student number: s3941911
 
-<em>Compile and Run Instructions</em>
+Compile and Run Instructions
 
 #Compile all
     make all
@@ -12,7 +12,7 @@ Student number: s3941911
 #Clean all 
     make clean
 
-<em>Copier</em>em>
+Copier
 
 #Compile 
     make copier
@@ -41,7 +41,7 @@ Student number: s3941911
     ./copier infile outfile -t runs
 
 
-<em>Mtcopier</em>em>
+Mtcopier
 
 #Compile 
     make mtcopier
