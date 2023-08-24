@@ -1,0 +1,74 @@
+Readme: Assignment One OSP - Multithreading
+
+Github: https://github.com/CantankerousCabbage/Multi-Threading
+Student: Joseph Warren
+Student number: s3941911
+
+<em>Compile and Run Instructions</em>
+
+#Compile all
+    make all
+
+#Clean all 
+    make clean
+
+<em>Copier</em>em>
+
+#Compile 
+    make copier
+
+#Clean
+    make clean copier
+
+#Run
+    Standard:
+    ./copier infile outfile
+
+    Timed:
+    ./copier infile outfile -t
+
+    Timed multiple Runs:
+    ./copier infile outfile -t runs
+
+#Memory Check
+    valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all
+    ./copier infile outfile
+
+    valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all
+    ./copier infile outfile -t
+
+    valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all
+    ./copier infile outfile -t runs
+
+
+<em>Mtcopier</em>em>
+
+#Compile 
+    make mtcopier
+
+#Clean
+    make clean mtcopier
+
+#Run
+    Standard:
+    ./mtcopier threads infile outfile
+    
+    Timed:
+    ./mtcopier threads infile outfile -t
+
+    Timed multiple Runs:
+    ./mtcopier threads infile outfile -t runs
+
+#Memory Check
+valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all
+./mtcopier threads infile outfile
+
+valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all
+./mtcopier threads infile outfile -t
+
+valgrind --track-origins=yes --leak-check=full --show-leak-kinds=all
+./mtcopier threads infile outfile -t runs
+
+Test file provided if needed. Have fun :P
+    
+    
