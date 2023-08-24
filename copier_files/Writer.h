@@ -30,11 +30,13 @@ class Writer {
     bool init();
 
     /**
-     * appends a line from the file read in to be output ... needed by the
-     * reader class
+     * Appends to buffer for writer 
      **/
     void append(const std::string& line);
 
+    /**
+     * Closes output file.
+     **/
     void close();
 
 

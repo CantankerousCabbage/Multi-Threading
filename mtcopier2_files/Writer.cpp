@@ -106,15 +106,17 @@ void Writer::dequeue(){
             this->writeLine = queue.front();
             queue.pop_front();
             // std::cout << "Pop: " << queue.size() << std::endl;
+        } else if(finished) {
+            pthread_cond_signal(&popCond);
+            pthread_mutex_unlock(&queueLock);
+            pthread_exit(NULL);
         }
         
      
     if(queue.size()){
         pthread_cond_signal(&popCond);   
     } else {
-        if(finished) {
-            Writer::empty = true;
-        }
+        
         pthread_cond_signal(&Reader::pushCond);        
     }
 
@@ -143,18 +145,20 @@ void Writer::append(const std::string& line, Reader* reader) {
     reader->tLog->startLockTimer();
     pthread_mutex_lock(&queueLock);
     reader->tLog->endLockTimer(reader->tLog->lockTwo);
-
-    pthread_mutex_unlock(&Reader::readLock); 
   
     reader->tLog->startWaitTimer();
-    while(queue.size() == BUFFER){
+    while(queue.size() == BUFFER && !finished){
         pushWait++;
         pthread_cond_wait(&Reader::pushCond, &queueLock);  
         pushWait--;      
     }  
     reader->tLog->endWaitTimer();
 
-    queue.push_back(line);
+    if(reader->valid){
+        queue.push_back(line);
+    }
+    // queue.push_back(line);
+    
     
     // std::cout << "Push: " << queue.size() << std::endl;
     if(queue.size() == BUFFER)
@@ -175,7 +179,8 @@ void Writer::append(const std::string& line, Reader* reader) {
         
     }
 
-    pthread_mutex_unlock(&queueLock);      
+    pthread_mutex_unlock(&queueLock);
+    pthread_mutex_unlock(&Reader::readLock);     
 }
 
 void Writer::cleanUp() {

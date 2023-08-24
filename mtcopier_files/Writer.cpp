@@ -9,32 +9,26 @@
 /**
  * Static variables for managing synchronisation
  **/
-int Writer::lineCount;
-int Writer::writeCount;
-bool Writer::queuedComplete;
-bool Writer::writeComplete;
 string Writer::outName;
 
-int Writer::dequeueWait;
-int Writer::writeWait;
+bool Writer::finished;
+bool Writer::first;
+bool Writer::empty;
 
 pthread_mutex_t Writer::queueLock;
 pthread_mutex_t Writer::writeLock;
-pthread_cond_t Writer::queueCond;
+pthread_cond_t Writer::popCond;
 pthread_cond_t Writer::writeCond;
 
 shared_ptr<Timer> Writer::timer;
 std::ofstream Writer::out;
 std::deque<std::string> Writer::queue;
 
-Writer::Writer(){}
-Writer::Writer(int ID) : threadID{ID} {
-    tLog = (Writer::timer) ? new TimeLog() : nullptr;
+Writer::Writer() {
+    tLog = make_shared<TimeLog>();
 }
 
-Writer::~Writer(){
-    delete tLog;
-}
+Writer::~Writer(){}
 
 bool Writer::init(const std::string& name, shared_ptr<Timer> timer) {
     
@@ -43,17 +37,13 @@ bool Writer::init(const std::string& name, shared_ptr<Timer> timer) {
     out.open(name);
     bool fileCheck = out.good();
     if (fileCheck) {
-        Writer::queuedComplete = false;
-        Writer::writeComplete = false;
-
-        Writer::lineCount = INITIAL;
-        Writer::writeCount = 1;
-        Writer::dequeueWait = INITIAL;
-        Writer::writeWait = INITIAL;
+        Writer::finished = false;
+        Writer::first = true;
+        Writer::empty = false;
 
         pthread_mutex_init(&queueLock, NULL);
         pthread_mutex_init(&writeLock, NULL);
-        pthread_cond_init(&queueCond, NULL);
+        pthread_cond_init(&popCond, NULL);
         pthread_cond_init(&writeCond, NULL);  
     }
     return fileCheck;
@@ -69,165 +59,107 @@ void Writer::run() {
 void* Writer::runner(void* arg) { 
     
     Writer* writer = (Writer*) arg;
-
-    while (!writeComplete) {
-        writer->dequeue();
-        writer->writeData();
-    } 
+    writer->execute(); 
     return NULL;
 }
+void Writer::execute(){
 
-bool Writer::dequeue(){
-    
-    if(timer) this->tLog->startLockTimer();  
-    pthread_mutex_lock(&queueLock);
-    if(timer) this->tLog->endLockTimer(tLog->lockOne);
+    //Execute until reading finished and queue empty
+    while (!empty) {
+        //Start Blocked Push Lock timer
+        if(this->timer->timed)this->tLog->startLockTimer();  
+        pthread_mutex_lock(&queueLock);
+        if(this->timer->timed)this->tLog->endLockTimer(tLog->lockOne);
 
-    if(timer) tLog->startWaitTimer();
-    //While more items incoming read but queue empty wait
-    while(!queuedComplete && (queue.size() == 0)){
-        Writer::dequeueWait++;
-        pthread_cond_wait(&queueCond, &queueLock);
-        Writer::dequeueWait--;
+        //Start Waiting Pop timer
+        if(this->timer->timed)this->tLog->startWaitTimer();
+        //If reading not finished but queue empty then wait
+        while(!queue.size() && !finished){
+            pthread_cond_wait(&popCond, &queueLock);
+        } 
+        if(this->timer->timed)this->tLog->endWaitTimer();
+
+        this->dequeue();
+
+        //Write time timer
+        if(this->timer->timed)this->tLog->startLockTimer();
+        this->writeData();
+        if(this->timer->timed)this->tLog->endLockTimer(tLog->IO);
+
+        pthread_mutex_unlock(&queueLock);
+        
     } 
-    if(timer) tLog->endWaitTimer(tLog->condOne);
-
-    //Safeguard agaisnt outstanding threads in queue on completion
-    if(queue.size() != 0){
+}
+void Writer::dequeue(){
+    //Only pop if elements. If finished and empty flag.
+    if(queue.size()){
         this->writeLine = queue.front();
-        this->writeID = ++lineCount;
         queue.pop_front();
-        // std::cout << "Push: " << queue.size() << std::endl;
+    } else if(finished) {
+        empty = true;
     }
 
-    //If reading finished empty queue else alternate between push/pop
-    if(queuedComplete){
-        pthread_cond_signal(&queueCond);   
-    } else {
-        if((queue.size() == 0 )){
-            pthread_cond_broadcast(&Reader::appendCond); 
-        } else {
-            pthread_cond_signal(&queueCond); 
-        }
-           
+    //Signal pop till buffer flushed otherwise trigger read appends 
+    if(queue.size()){
+        pthread_cond_signal(&popCond);   
+    } else {   
+        pthread_cond_signal(&Reader::pushCond);        
     }
 
-    pthread_mutex_unlock(&queueLock);
-    return true; 
+}
+
+void Writer::writeData(){
+    if(!empty){
+        
+        if(!Writer::first){
+            out << "\n";   
+        } 
+        if(Writer::first){
+            Writer::first = false; 
+        } 
+        out << this->writeLine;
+    }
 }
 
 void Writer::append(const std::string& line, Reader* reader) {
    
-    if(timer)  reader->tLog->startLockTimer();
-    pthread_mutex_lock(&queueLock);
-    if(timer) reader->tLog->endLockTimer(reader->tLog->lockTwo);
-
-  
-    if(timer) reader->tLog->startWaitTimer();
-    //If buffer full reached or out of order then wait
-    while(reader->getReadID() != Reader::queueCounter || queue.size() == BUFFER){
-        pthread_cond_wait(&Reader::appendCond, &queueLock);        
-    }  
-
-    if(timer) reader->tLog->endWaitTimer(reader->tLog->condOne);
-
-    if(reader->getReadID() == Reader::queueCounter) queue.push_back(line);
-    
-    if(Reader::readComplete && Reader::readCounter == Reader::queueCounter){
-        Writer::setFinished(); //queueComplete  TRUE
-    } else {
-        Reader::queueCounter++;
-    }
-
-    //If items remain to queue broadcast append queue(allows correct line to append), else remove outstanding threads.   
-    if(!queuedComplete && queue.size() < BUFFER)
-    {
-        pthread_cond_broadcast(&Reader::appendCond);
-    } else {
-        pthread_cond_signal(&queueCond);
-    }
-    pthread_mutex_unlock(&queueLock); 
-       
-}
-
-void Writer::writeData(){
-    
-    
-    if(timer) this->tLog->startLockTimer();
-    pthread_mutex_lock(&writeLock);
-    if(timer) this->tLog->endLockTimer(this->tLog->lockTwo);
-
-    //Queue to manage writing in correct order
-    if(timer) this->tLog->startWaitTimer();
-    while(!writeComplete && this->writeID != writeCount){
-        Writer::writeWait++;
-        pthread_cond_wait(&writeCond, &writeLock); 
-        Writer::writeWait--;   
-    }  
-    if(timer) this->tLog->endWaitTimer(this->tLog->condTwo); 
-    
-    if(!writeComplete){
-        //Prepend newline after first write.
-        if(this->writeID != FIRST) out << "\n";
-        out << this->writeLine;
-       
-        //If all items remove from buffer set complete
-        if(queuedComplete && writeCount == Reader::readCounter){
-            out.close();
-            // std::cout << "WRITE COMPLETE" << std::endl;
-            writeComplete = true;
-            pthread_cond_signal(&writeCond);
-        } else {
-          writeCount++; 
-          pthread_cond_broadcast(&writeCond); 
-        }
-    } else {
-         pthread_cond_signal(&writeCond);
-    }
-    // std::cout << "D-W: " << dequeueWait << " W-W: " << writeWait << std::endl;
-    pthread_mutex_unlock(&writeLock);
+    queue.push_back(line);
+     
 }
 
 void Writer::cleanUp() {
     pthread_mutex_destroy(&queueLock);
     pthread_mutex_destroy(&writeLock);
-    pthread_cond_destroy(&queueCond);
-    pthread_cond_destroy(&writeCond);
+    pthread_cond_destroy(&popCond);
+    
 }
 
 bool Writer::reset(){
     out.open(outName);
     bool fileCheck = out.good();
     if(fileCheck) {
-        Writer::queuedComplete = false;
-        Writer::writeComplete = false;
-        Writer::lineCount = INITIAL;
-        Writer::writeCount = 1;
-        Writer::dequeueWait = INITIAL;
-        Writer::writeWait = INITIAL;
+        Writer::finished = false;
+        Writer::first = true;
+        Writer::empty = false;
     }
    return fileCheck;
 }
 
 void Writer::resetInstance() {
     this->writeLine = "";
-    this->writeID = 0;
-    delete this->tLog;
-    this->tLog = new TimeLog();
+    this->tLog->reset();
 }
 
 void Writer::setFinished() {
-    // std::cout << "D-W: " << dequeueWait << " W-W: " << writeWait << std::endl;
-    queuedComplete = true;
+    finished = true;
 }
 
 pthread_t Writer::getThread() {
     return writeThread;
 }
 
-int Writer::getID(){
-    return this->threadID;
+void Writer::close(){
+    Writer::out.close();
 }
-
 
 

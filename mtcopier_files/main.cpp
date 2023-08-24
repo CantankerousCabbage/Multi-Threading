@@ -18,13 +18,15 @@ using std::vector;
 #define STANDARD_COMMAND 4
 #define CONFIG_ADDITIONAL 6
 #define DEFAULT 1
-#define MAX_THREADS 250
-#define MIN_THREADS 2
+#define MAX_THREADS 100
+#define MIN_THREADS 25
 #define TIMED "-t"
 
 //Thread data object arrays.
 Reader** reader;
 Writer** writer;  
+shared_ptr<int> numThreads;
+shared_ptr<bool> fileTest;
 
 void cleanup();
 int cmdError();
@@ -34,12 +36,12 @@ int cmdError();
 * 1. Generating thread data objects
 * 2. Creating threads
 * 3. Reset reader/writer instance for multi recorded runs
-* 3. Joining threads.
+* 4. Joining threads.
 */
 template<typename T>
 void  genObjects(T** objArray, int& length) {
     for(int i = 0; i < length; i++) {
-        objArray[i] = new T(i);
+        objArray[i] = new T();
     }
 }
 
@@ -67,7 +69,7 @@ void  joinThreads(T** objArray, int& length) {
 }
 
 /*
-* Parses command line, runs validation on input.
+* Parses command line
 */
 bool parseCommandLine(int argc, char** argv, shared_ptr<int> numThreads, std::string& input, 
 std::string& output, shared_ptr<bool> timed, shared_ptr<int> numRuns);
@@ -79,38 +81,49 @@ int main(int argc, char** argv) {
     std::string outFile;
     std::string inFile;
     shared_ptr<bool> timed = make_shared<bool>();
-    shared_ptr<int> numThreads = make_shared<int>();
+    numThreads = make_shared<int>();
     shared_ptr<int> numRuns = make_shared<int>(DEFAULT);
     
+    //Parse command line
     bool success = parseCommandLine(argc, argv, numThreads, inFile, outFile, timed,  numRuns);
-    std::cout << success << std::endl;
-    shared_ptr<Timer> timer = (*timed) ? make_shared<Timer>(numRuns) : nullptr;
+    
+    shared_ptr<Timer> timer = make_shared<Timer>(numRuns, timed);
 
     int counter = 0;
     if(success) {  
-            shared_ptr<bool> fileTest = make_shared<bool>(false);
-            reader = new Reader*[*numThreads];
-            writer = new Writer*[*numThreads];
             
-            success = success && Reader::init(inFile, timer, fileTest) && Writer::init(outFile, timer); 
-            
-            Timer::init();
-            
-            genObjects<Reader>(reader, *numThreads);
-            genObjects<Writer>(writer, *numThreads);
+            //Validate file I/O
+            fileTest = make_shared<bool>(false);
+            success = success && Reader::init(inFile, timer, fileTest); 
+            if(success) success = success && Writer::init(outFile, timer);
 
+            if(success){
+                reader = new Reader*[*numThreads];
+                writer = new Writer*[*numThreads];
+                
+                Timer::init();
+                
+                //Reader and writer instances to encapsulate data/timers.
+                genObjects<Reader>(reader, *numThreads);
+                genObjects<Writer>(writer, *numThreads);
+            }
+           
+           //Loop to manage multiple runs
             while(success && counter != *numRuns){
-                if(timer) timer->start();
-                //  std::cout << "OBJECTS GENERATED" << std::endl;
+                timer->start();
+                //Run threads and then join threads
                 runObjects<Reader>(reader, *numThreads);
                 runObjects<Writer>(writer, *numThreads);
-                // std::cout << "RUN COMPLETE" << std::endl;
+                
                 joinThreads<Reader>(reader, *numThreads);
-                // std::cout << "READERS JOINED" << std::endl;
                 joinThreads<Writer>(writer, *numThreads);
-                // std::cout << "WRITERS JOINED" << std::endl;
 
-                if(timer){
+                //Cleanup I/O
+                Reader::close();
+                Writer::close();
+
+                //Log times for individual threads
+                if(*timed){
                     timer->end();
                     for(int i = 0; i < *numThreads; i++) {
                         timer->updateReadTime(reader[i]->tLog, timer);
@@ -120,32 +133,34 @@ int main(int argc, char** argv) {
                     }
                 }
 
-                if(timer){
-                    if (*numRuns > DEFAULT) timer->archiveRun();
-                    timer->printResults(numThreads);
-                } 
-                          
-                counter++;
+                if(*timed){
+                        //Print timer results and archive them if multiple runs 
+                        timer->printResults(numThreads);
+                        if(*numRuns > DEFAULT) timer->archiveRun();
+                    counter++;   
+                    if(counter != *numRuns && *numRuns > DEFAULT){
+                        //Reset all timer object on multiple runs
+                        timer->reset();
+                        success = Reader::reset() && Writer::reset();
+                        resetObjects<Reader>(reader, *numThreads);
+                        resetObjects<Writer>(writer, *numThreads);
 
-                if(counter != *numRuns && *numRuns > DEFAULT){
-                    
-                    timer->reset();
-                    success = Reader::reset() && Writer::reset();
-                    
-                    resetObjects<Reader>(reader, *numThreads);
-                    resetObjects<Writer>(writer, *numThreads);
-                } else if (*numRuns > DEFAULT && counter == *numRuns){
-                    timer->outputResults(numThreads);
-                }
+                    } else if (*numRuns > DEFAULT && counter == *numRuns){
+                        timer->outputResults(numThreads);
+                    }
+                }             
             }
+            //Cleanup all mutex and conditions
             Reader::cleanUp;
             Writer::cleanUp;
             Timer::cleanUp;
-
-            if(!success) cmdError();
+            
+            if(!success){
+                cmdError();
+            } 
     } else {
         cmdError();
-    }     
+    }  
     return EXIT_SUCCESS;
 }
 
@@ -175,33 +190,42 @@ string& output, shared_ptr<bool> timed,  shared_ptr<int> numRuns) {
             valid = false;
         }    
     } 
-    *numThreads = *numThreads / 2;
-
-    if(!valid) cmdError();
-
     return valid;
 }
+
 
 /*
 * Cleanup up dynamic memory
 */
 void cleanup() {
+   //Make sure array elements initialised before attempting to delete.
+   if(fileTest){
+        for(int i = 0; i < *numThreads; i++){
+        delete reader[i];
+        }
+        for(int i = 0; i < *numThreads; i++){
+            delete writer[i];
+        }
+   }
     delete[] reader;
     delete[] writer;
 }
+
+
 
 /*
 * Error Message
 */
 int cmdError() {
     std::cout << 
-    "Error, try following input for standard compile:\n"
+    "Error, try following input to run:\n"
     "timed: $./mtcopier numthreads infile outfile -t\n" 
     "OR"
     "timed: $./mtcopier numthreads infile outfile -t x\n"
     "x - number of times to run program"
     "untimed: $./mtcopier numthreads infile outfile\n" 
-    << MIN_THREADS << " <= Thread count <= " << MAX_THREADS << "\n" 
+    << MIN_THREADS << " <= Thread count <= " << MAX_THREADS << "\n\n" 
+    "Please check infile exists.\n" 
     << std::endl;
 
     return 0;

@@ -6,28 +6,18 @@
 #include "Timer.h"
 #include "Writer.h"
 
-int Reader::queueCounter;
-int Reader::readCounter;
-bool Reader::readComplete;
 
-pthread_mutex_t Reader::appendLock;
-pthread_mutex_t Reader::readLock;
-pthread_cond_t Reader::appendCond;
+pthread_cond_t Reader::pushCond;
 
 shared_ptr<Timer> Reader::timer;
 std::ifstream Reader::in;
 string Reader::inFile;
 
-
-Reader::Reader(){}
-Reader::Reader(int ID) : threadID{ID} {
-    
-    // std::cout << ((Reader::timer) ? "Timer Made" : "Not MAde") << std::endl;
-    this->tLog = (Reader::timer) ? new TimeLog() : nullptr;
+Reader::Reader() {  
+    //Holds timing data
+    this->tLog =  make_shared<TimeLog>(); 
 }
-Reader::~Reader(){
-    delete tLog;
-}
+Reader::~Reader(){ }
 
 bool Reader::init(const std::string& fileName, shared_ptr<Timer> timer, shared_ptr<bool> fileTest) {
     
@@ -38,20 +28,12 @@ bool Reader::init(const std::string& fileName, shared_ptr<Timer> timer, shared_p
     
     if(fileCheck) {
         Reader::timer = timer;
-
-        Reader::readComplete = false;
-        Reader::readCounter = 0;
-        Reader::queueCounter = 1;
-
-        pthread_mutex_init(&readLock, NULL);
-        pthread_mutex_init(&appendLock, NULL);
-        pthread_cond_init(&appendCond, NULL); 
+        pthread_cond_init(&pushCond, NULL); 
     }
     return fileCheck;
 }
 
 void Reader::run() {
-    //Add error handling
     if(pthread_create(&readThread, NULL, &runner, this)){
         std::cout << "Error: unable to create thread" << std::endl;
             exit(-1);
@@ -61,81 +43,73 @@ void Reader::run() {
 void* Reader::runner(void* arg) { 
     Reader* reader = (Reader*) arg;
     
-    while(!Reader::readComplete) {  
-        reader->getLine();
-        reader->queueLine();  
+    while(!Writer::finished) {  
+        reader->execute();  
     }
-   
     return NULL;
 }
 
-void Reader::getLine() {
+
+
+void Reader::execute() {
+    //Blocked Push Lock timer
+    if(this->timer->timed)this->tLog->startLockTimer();
+    pthread_mutex_lock(&Writer::queueLock); 
+    if(this->timer->timed)this->tLog->endLockTimer(this->tLog->lockOne);
     
-    if(timer) this->tLog->startLockTimer();
-    // std::cout << "Timer: 1 Exit" << (this->tLog->lockOne) << std::endl;
-    pthread_mutex_lock(&readLock); 
-    // std::cout << "Timer: 2" << std::endl;
-    if(timer) this->tLog->endLockTimer(this->tLog->lockOne); 
+    //Prevent errant threads exectuting post finish
+    if(!Writer::finished){
+
+        //Waiting Push timer
+        if(this->timer->timed)this->tLog->startWaitTimer();
+        //Conditional variable, triggered at Max buffer
+        while(Writer::queue.size() == BUFFER){ 
+            pthread_cond_wait(&Reader::pushCond, &Writer::queueLock);
+        } 
+        if(this->timer->timed)this->tLog->endWaitTimer();
         
-        if(!Reader::readComplete && std::getline(in, this->readLine)){  
-            this->readID = ++Reader::readCounter; 
-           
+        //Read Time timer
+        if(this->timer->timed)this->tLog->startLockTimer();
+        if(!std::getline(in, this->readLine)){ 
+                Writer::setFinished(); 
         } else {
+            Writer::append(this->readLine, this); 
+        } 
+        if(this->timer->timed)this->tLog->endLockTimer(this->tLog->IO);
 
-            if(!Reader::readComplete) Reader::readFinished();
-            pthread_mutex_unlock(&readLock);
-            pthread_exit(NULL);
+        //If buffer full unblock read threads else continue pushing to queue
+        if(Writer::queue.size() == BUFFER)
+        {   
+            pthread_cond_signal(&Writer::popCond);
+        } else {   
+            pthread_cond_signal(&Reader::pushCond);      
         }
-    pthread_mutex_unlock(&readLock);  
-   
-   
-        
-}
 
-void Reader::queueLine() {
- 
-        Writer::append(this->readLine, this);
-}
-
-void Reader::readFinished() {
-    in.close();
-    Reader::readComplete = true;
+    }
+   pthread_mutex_unlock(&Writer::queueLock);         
 }
 
 void Reader::cleanUp(){ 
-    
-    pthread_mutex_destroy(&appendLock);
-    pthread_mutex_destroy(&readLock);
-    pthread_cond_destroy(&appendCond);
+    pthread_cond_destroy(&pushCond);
 }
 
 bool Reader::reset(){
     Reader::in.open(inFile);
     bool fileCheck = in.good();
-    if (fileCheck) {
-        Reader::readComplete = false;
-        Reader::readCounter = 0;
-        Reader::queueCounter = 1;    
-    }
+   
     return fileCheck;
 }
 
 void Reader::resetInstance(){
     this->readLine = "";
-    this->readID = 0;
-    delete this->tLog;
-    this->tLog = new TimeLog();
+    this->tLog->reset();
 }
 
 pthread_t Reader::getThread(){
     return readThread;
 }
 
-int Reader::getID(){
-    return this->threadID;
-}
-
-int Reader::getReadID(){
-    return this->readID;
+void Reader::close(){
+    Reader::in.close();
 }
 

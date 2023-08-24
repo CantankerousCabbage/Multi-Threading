@@ -14,6 +14,8 @@
 
 using std::string;
 using std::shared_ptr;
+using std::unique_ptr;
+using std::make_shared;
 
 class Reader {
    public:
@@ -22,7 +24,6 @@ class Reader {
      * Constructors/Destructors 
      */
     Reader();
-    Reader(int ID);
     ~Reader();
 
     /*
@@ -36,24 +37,14 @@ class Reader {
     static void* runner(void*);
 
     /*
-     * Sets up and launches threads.
+     * Creates read thread for reader instance
      */
     void run();
 
     /**
-     * Clean up pointers and pthread mutex, condition variables.
+     * Governs execution loop and lock and conidition for reader
      **/
-    void getLine();
-
-    /**
-     * Clean up pointers and pthread mutex, condition variables.
-     **/
-    void queueLine();
-
-    /**
-     * Sets read as finished, notifies write of final line counter;
-     **/
-    static void readFinished();
+    void execute();
 
     /**
      * Clean up pointers and pthread mutex, condition variables.
@@ -85,30 +76,24 @@ class Reader {
      **/
     void resetInstance();
 
-    
-
-    
+    /**
+     * close file
+     **/
+    static void close();
 
     friend class Writer;
 
-    static int queueCounter;
-    static int readCounter;
-    static bool readComplete;
-    static pthread_mutex_t appendLock;
-    static pthread_mutex_t readLock;
-    static pthread_cond_t appendCond;
+    static pthread_cond_t pushCond;
     static shared_ptr<Timer> timer;
     static string inFile;
     static std::ifstream in;
 
-    TimeLog* tLog;
-    
-
+        shared_ptr<TimeLog> tLog;
+    protected:
+        string readLine;
+        
     private:
         pthread_t readThread;
-        string readLine;
-        int readID;
-        int threadID;
     
 };
 #endif

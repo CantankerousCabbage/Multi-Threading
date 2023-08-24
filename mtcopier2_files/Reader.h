@@ -97,8 +97,9 @@ class Reader {
 
     shared_ptr<TimeLog> tLog;
     protected:
+        bool valid;
         string readLine;
-
+        
     private:
         pthread_t readThread;
     

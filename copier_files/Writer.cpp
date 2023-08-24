@@ -14,11 +14,10 @@ Writer::Writer(const std::string& name) : name{name} {
 }
 
 void Writer::run() {
-        
+        //After first write prepends newline. Prevents trailing "\n" on final write
         out <<  ((first) ? "" : "\n") << queue.front();
         queue.pop_front(); 
         if(first) first = !first;
-
 }
 
 bool Writer::init() {
@@ -26,14 +25,11 @@ bool Writer::init() {
     return out.good();
 }
 
-
-
 void Writer::append(const std::string& line) {
     queue.push_back(line);
 }
 
 void Writer::close(){
-    
     out.close();
     first = true;
 }

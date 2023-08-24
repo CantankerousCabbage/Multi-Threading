@@ -18,8 +18,8 @@ using std::vector;
 #define STANDARD_COMMAND 4
 #define CONFIG_ADDITIONAL 6
 #define DEFAULT 1
-#define MAX_THREADS 250
-#define MIN_THREADS 2
+#define MAX_THREADS 100
+#define MIN_THREADS 25
 #define TIMED "-t"
 
 //Thread data object arrays.
@@ -107,9 +107,8 @@ int main(int argc, char** argv) {
                 runObjects<Writer>(writer, *numThreads);
                  
                 joinThreads<Reader>(reader, *numThreads);
-                // std::cout << "Reader Joined" << std::endl;
                 joinThreads<Writer>(writer, *numThreads);
-                // std::cout << "Writer Joined" << std::endl;
+                
 
                 Reader::close();
                 Writer::close();
@@ -179,7 +178,7 @@ string& output, shared_ptr<bool> timed,  shared_ptr<int> numRuns) {
             valid = false;
         }    
     } 
-    *numThreads = *numThreads / 2;
+    // *numThreads = *numThreads / 2;
 
     if(!valid) cmdError();
 

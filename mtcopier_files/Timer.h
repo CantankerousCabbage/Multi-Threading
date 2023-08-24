@@ -13,7 +13,6 @@
 
 #define SPACING 40
 #define PRECISION 8
-#define OUTPUT "resultsMT.txt"
 
 using std::shared_ptr;
 using std::unique_ptr;
@@ -23,56 +22,59 @@ using std::chrono::high_resolution_clock;
 class Reader;
 class Writer;
 
-struct timeSum{
-    long double totalTime = 0;
-    double entries = 0;
-};
-
-struct archiveEntry{
+/**
+ * Structure for recording all data from a single run. Recalled to aggregate data on 
+ * multiple runs.
+ **/
+struct archiveEntry{      
     double writeLockOne = 0;
-    double writeLockTwo = 0;
+    double writeIO = 0;
     double readLockOne = 0;
-    double readLockTwo = 0;
-    
+    double readIO = 0;
     double writeCondOne = 0;
-    double writeCondTwo = 0;
     double readCondOne = 0;
 
     double total = 0;
-    double totalCPU = 0;
+    double totalCPU = 0;  
+    
 };
 
+/**
+ * Instanced class for recording distinct thread timings
+ **/
 class TimeLog{
      public:
-        TimeLog(){
-            this->lockStart = high_resolution_clock::now();
-            this->waitStart = high_resolution_clock::now();
-        };
-        //Getclock stores clock data in timespec struc parameter for give clockID.
-        void startLockTimer(){
-            this->lockStart = high_resolution_clock::now();
-        }
+        TimeLog();
+        ~TimeLog();
+        /**
+         * Stores real time when attempting to acquire lock.
+         **/
+        void startLockTimer();
 
-        void startWaitTimer(){
-            didWait = true; 
-            this->waitStart = high_resolution_clock::now();
-        }
+        /**
+         * Stores real time on entering conditional variable
+         **/
+        void startWaitTimer();
 
-        void endLockTimer(timeSum& lock){ 
-            lock.entries++; 
-            lock.totalTime += getDiff(lockStart);
-        }
-        void endWaitTimer(timeSum& wait){
-            if((didWait)) {
-                wait.entries++; wait.totalTime += getDiff(waitStart);
-                didWait = false;
-            }    
-        }
+        /**
+         * Calculates time since startLockTimer
+         **/
+        void endLockTimer(double& lock);
 
-        double getDiff(std::chrono::time_point<high_resolution_clock>& start){
-            std::chrono::duration<double> timeSeconds = (high_resolution_clock::now() - start);
-            return (double)timeSeconds.count(); 
-        }
+        /**
+         * Calculate time since endWaitTimer
+         **/
+        void endWaitTimer();
+
+        /**
+         * Reset timelog after data is archived when multiple runs enabled 
+         **/
+        void reset();
+
+        /**
+         * Calculates difference between start and end times
+         **/
+        double getDiff(std::chrono::time_point<high_resolution_clock>& start);
 
         friend class Timer;
         friend class Reader;
@@ -80,10 +82,9 @@ class TimeLog{
 
         protected:
             bool didWait;
-            timeSum lockOne;
-            timeSum lockTwo;
-            timeSum condOne;
-            timeSum condTwo;
+            double lockOne;
+            double IO;
+            double condOne;
         private:
         
            std::chrono::time_point<high_resolution_clock> lockStart;
@@ -94,24 +95,69 @@ class Timer {
  
     public:
         Timer();
-        Timer(shared_ptr<int>  numRuns);
+        Timer(shared_ptr<int>  numRuns, shared_ptr<bool> time);
         ~Timer();
 
+        /**
+         * Initialises globabl timer variables
+         **/
         static void init();
+
+        /**
+         *  Destroys timer mutex, that prevents race conditions in archive entry
+         **/
         static void cleanUp();
         static pthread_mutex_t timeLock; 
 
-        void updateReadTime(TimeLog* readLog, shared_ptr<Timer> timer);
-        void updateWriteTime(TimeLog* writeLog, shared_ptr<Timer> timer);
+        /**
+         *  Stores data from calling read thread into archive struct
+         **/
+        void updateReadTime(shared_ptr<TimeLog> readLog, shared_ptr<Timer> timer);
+
+         /**
+         *  Stores data from calling write thread into archive struct
+         **/
+        void updateWriteTime(shared_ptr<TimeLog> writeLog, shared_ptr<Timer> timer);
+
+         /**
+         *  Starts timer for total program time, CPU and real.
+         **/
         void start();
+
+        /**
+         *  Ends timer for total program time, CPU and real.
+         **/
         void end();
+
+        /**
+         *  Resets the aggregate timing results after archive entry for multiple runs
+         **/
         void reset();
+
+        /**
+         *  Prints individual run results to terminal.
+         **/
         void printResults(shared_ptr<int> numthreads);
-        void printAggregate(shared_ptr<int> numthreads, archiveEntry* totals);
+
+        /**
+         *  Prints aggregate results to terminal. Only on multiple runs.
+         **/
+        void printAggregate(shared_ptr<int> numthreads, shared_ptr<archiveEntry> totals);
+
+        /**
+         *  Stores aggregate run data into archive struct and palces in archive vector.
+         **/
         void archiveRun();
+
+        /**
+         *  Aggregates multi-run results before invoking printAggregate
+         **/
         void outputResults(shared_ptr<int> numThreads);
-        double getAverage(timeSum time);
-        
+
+        friend class Reader;
+        friend class Writer;
+    protected:
+        shared_ptr<bool> timed;
     private:
         unique_ptr<std::vector<unique_ptr<archiveEntry>>> archive;
         std::chrono::time_point<system_clock> initial;
@@ -122,12 +168,10 @@ class Timer {
         shared_ptr<int> numRuns;
 
         double writeLockOne;
-        double writeLockTwo;
+        double writeIO;
         double readLockOne;
-        double readLockTwo;
-        
+        double readIO;
         double writeCondOne;
-        double writeCondTwo;
         double readCondOne;
                 
 };

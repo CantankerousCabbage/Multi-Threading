@@ -14,9 +14,10 @@ shared_ptr<Timer> Reader::timer;
 std::ifstream Reader::in;
 string Reader::inFile;
 
-Reader::Reader() {
+Reader::Reader() : valid{true} {
     // std::cout << ((Reader::timer) ? "Timer Made" : "Not MAde") << std::endl;
     this->tLog =  make_shared<TimeLog>();
+    // this->valid = true;
 }
 Reader::~Reader(){ }
 
@@ -62,11 +63,46 @@ void Reader::getLine() {
     pthread_mutex_lock(&readLock); 
     this->tLog->endLockTimer(this->tLog->lockOne); 
         
-        if(!Writer::finished && !std::getline(in, this->readLine)){  
-            Writer::setFinished();
-        } 
-        Writer::append(this->readLine, this); 
-        // if(!Writer::finished)Writer::append(this);       
+        // if(!Writer::finished){
+        //     if(!std::getline(in, this->readLine)){  
+        //         std::cout << "Couldn't getLine" << std::endl;
+        //         if(!Writer::finished){
+        //             Writer::setFinished(); 
+        //             std::cout << "FINISHED" << std::endl;  
+        //         } 
+        //         pthread_mutex_unlock(&Reader::readLock);
+        //         pthread_exit(NULL);   
+        //     } 
+        //     std::cout << "Appending" << std::endl;
+        //     Writer::append(this->readLine, this); 
+        // } else {
+        //     std::cout << "Outer exit" << std::endl;
+        //     pthread_mutex_unlock(&Reader::readLock);
+        //     pthread_exit(NULL); 
+        // } 
+
+        // if(Writer::finished || !std::getline(in, this->readLine)){
+        //     if(!Writer::finished) Writer::setFinished();
+        //     this->valid = false;
+        // }
+
+        // Writer::append(this->readLine, this);
+        // if(!Writer::finished)Writer::append(this);   
+
+        if(!std::getline(in, this->readLine)){
+            if(!Writer::finished){
+                Writer::setFinished();
+            } 
+            pthread_cond_broadcast(&Reader::pushCond);
+            pthread_cond_broadcast(&Writer::popCond);
+            pthread_mutex_unlock(&Reader::readLock);
+            pthread_exit(NULL);
+            //  pthread_broadcast_signal(&Writer::popCond);
+            // pthread_cond_signal(&Reader::pushCond); 
+
+        }
+
+        Writer::append(this->readLine, this);    
 }
 
 void Reader::cleanUp(){ 
@@ -78,13 +114,13 @@ void Reader::cleanUp(){
 bool Reader::reset(){
     Reader::in.open(inFile);
     bool fileCheck = in.good();
-    
+   
     return fileCheck;
 }
 
 void Reader::resetInstance(){
     this->readLine = "";
-
+    this->valid = true;
     this->tLog->reset();
 }
 

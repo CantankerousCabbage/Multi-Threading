@@ -26,7 +26,11 @@ int cmdError();
 bool parseCommandLine(int argc, char** argv, shared_ptr<bool> timed, shared_ptr<int> numRuns);
 
 int main(int argc, char** argv) {
- 
+    
+    // shared_ptr<bool> fileTest = make_shared<bool>(false);
+
+    // success = success && Reader::init(inFile, timer, fileTest); 
+    // if(success) success = success && Writer::init(outFile, timer);
     shared_ptr<bool> timed = make_shared<bool>();
     shared_ptr<int> numRuns = make_shared<int>(DEFAULT);
 
@@ -51,14 +55,16 @@ int main(int argc, char** argv) {
                 if (*timed) { 
                 run->runTimed();
                 } else {
-                    run->run();  
+                    theReader->run();  
                 } 
                 runs++;
 
                 if(*numRuns > DEFAULT) run->recordResults(); 
+            } else {
+                cmdError();
             }  
         } 
-        if(*numRuns > DEFAULT) run->print(*numRuns); 
+        if(success && *numRuns > DEFAULT) run->print(*numRuns); 
          
     
     } else {
@@ -98,12 +104,13 @@ bool parseCommandLine(int argc, char** argv, shared_ptr<bool> timed, shared_ptr<
 
 int cmdError() {
     std::cout << 
-    "Error, try following input for standard compile:\n"
+    "Error, try the followings input for to run:\n"
     "timed: $./copier infile outfile -t\n" 
     "OR\n"
     "timed: $./copier infile outfile -t x\n" 
     "x - number of runs\n"
-    "untimed: $./copier infile outfile\n" 
+    "untimed: $./copier infile outfile\n\n" 
+    "Please check infile exists.\n" 
     << std::endl;
 
     return 0;

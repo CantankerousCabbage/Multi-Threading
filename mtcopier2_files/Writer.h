@@ -15,7 +15,7 @@
 
 #define FIRST 1
 #define INITIAL 0
-#define BUFFER 400
+#define BUFFER 800
 
 using std::string;
 using std::shared_ptr;

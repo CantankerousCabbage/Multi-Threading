@@ -105,13 +105,13 @@ void Timer::updateWriteTime(shared_ptr<TimeLog> writeLog, shared_ptr<Timer> time
 }
 
 
-void Timer::printResults(shared_ptr<int> numthreads){
+void Timer::printResults(shared_ptr<int> numThreads){
     // Format lambda 
     auto lineFormat = [](std::string s, double v){std::cout << s << std::fixed 
     << std::setprecision(PRECISION) << std::setw(SPACING - s.length()) << v <<"\n";};
 
     std::cout << "Results" << "\n-------\n";
-    std::cout << "#" << ((*numthreads)*2) << " threads\n";
+    std::cout << "Threads: " << (*numThreads) << ", " << ((*numThreads)*2) << "total." << "\n";
     lineFormat("Blocked Read Lock: ", this->readLockOne);
     lineFormat("Blocked Append Lock: ", this->readLockTwo);
     lineFormat("Blocked Pop Lock: ", this->writeLockOne);
@@ -142,10 +142,9 @@ void Timer::archiveRun() {
 void Timer::printAggregate(shared_ptr<int> numThreads,shared_ptr<archiveEntry> totals){
     auto lineFormat = [](std::string s, double v){std::cout << s << std::fixed 
     << std::setprecision(PRECISION) << std::setw(SPACING - s.length()) << v <<"\n";};
-    std::cout << "AT PRINT" << std::endl;
     std::cout << "Aggregate Results" << "\n-----------------\n";
     std::cout << "#" << (*numRuns) << " runs\n";
-    std::cout << "#" << ((*numThreads)*2) << " threads\n";
+    std::cout << "Threads: " << (*numThreads) << ", " << ((*numThreads)*2) << " total." << "\n";
     lineFormat("Blocked Read Lock: ", totals->readLockOne);
     lineFormat("Blocked Append Lock: ", totals->readLockTwo);
     lineFormat("Blocked Pop Lock: ", totals->writeLockOne);

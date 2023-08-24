@@ -16,26 +16,29 @@ using std::unique_ptr;
 
 #define SPACING 40
 #define PRECISION 8
-#define REAL 0
-#define CPU 1
-
 
 class Timer {
 
     public:
-        /* Creates timer from which we'll time and record our functions
-        * 
+        /* 
+        * Creates timer from which we'll time and record our functions
         */
         Timer(shared_ptr<Writer> thewriter, shared_ptr<Reader> thereader);
-
-        void run();
+        /* 
+        * Manages timed run
+        */
         void runTimed();
+        /* 
+        * Stores aggregate data on multiple runs
+        */
         void recordResults();
+        /* 
+        * Prints results
+        */
         void print(int numRuns=0);
         
     private:
 
-        // const std::string& inFile;
         double realTimeLog;
         double CPUTimeLog;
 
